@@ -11,13 +11,8 @@ const currentPath = Astro.url.pathname;
   <div class="container py-3 flex items-center justify-between">
     <!-- Brand lockup -->
     <a href="/" class="flex items-center gap-2 text-ink hover:text-accent no-underline transition-colors">
-      <div class="w-8 h-8 rounded-pill bg-accent/10 flex items-center justify-center">
-        <svg class="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 3L4 9v12h16V9l-8-6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M9 21v-6h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <span class="font-semibold text-lg">OpenClaw</span>
+      <img src="/logo.svg" alt="" class="w-8 h-8" loading="lazy" decoding="async" />
+      <span class="font-semibold text-lg">Turtleand OpenClaw</span>
     </a>
 
     <!-- Navigation -->
