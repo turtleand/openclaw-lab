@@ -1,0 +1,247 @@
+---
+title: "Persistent AI agents"
+module: "Module 0: Setup & Safety"
+subtopic: "persistent-agents"
+summary: "Deploy an always-on AI agent on a cloud server with messaging and security."
+status: "done"
+articles: []
+---
+
+## What is a persistent AI agent?
+
+Instead of opening a chat window when you need help, a persistent agent runs 24/7 on a server. You can message it from your phone and get responses anytime.
+
+[OpenClaw](https://openclaw.ai/) is an open-source framework for this. It lets you:
+
+- Receive messages via Telegram, Signal, or Discord
+- Execute commands and manage files on a server
+- Run scheduled tasks automatically
+- Remember context across conversations
+
+Think of it as:
+
+> "An AI assistant living on a server, available whenever you need it."
+
+---
+
+## Important: Terms of Service
+
+Before setting this up, be aware of potential issues:
+
+- **API usage rules** — Some AI providers may restrict automated or persistent usage of their APIs. There are [reports of Anthropic banning users](https://blogs.cisco.com/ai/personal-ai-agents-like-openclaw-are-a-security-nightmare) running OpenClaw with Claude credentials.
+
+- **Security risks** — Running an AI with shell access on a server is powerful but risky. [Security researchers warn](https://www.darkreading.com/application-security/openclaw-ai-runs-wild-business-environments) about supply chain risks from third-party modules.
+
+**Recommendation:** Read the terms of service for your AI provider. Consider running in an isolated sandbox. Don't connect to production systems.
+
+---
+
+## Why run a persistent agent
+
+A persistent agent changes the interaction from "I open a chat" to "I message my assistant."
+
+**Benefits:**
+- **Always available** — Message from your phone, get a response
+- **Proactive capabilities** — Schedule tasks, run checks, send reminders
+- **Shared context** — Memory persists across sessions
+- **Integration surface** — One agent connecting calendar, files, APIs
+
+**Good for:**
+- AI assistant accessible from anywhere
+- Recurring tasks that benefit from automation
+- Experimenting with agent capabilities
+- Owning your infrastructure
+
+**Not ideal if:**
+- You only need occasional interactions
+- You don't want to manage a server
+- Claude.ai or Claude Code already covers your needs
+
+---
+
+## Requirements
+
+Before starting:
+
+- **Cloud server** — EC2, DigitalOcean, or any Linux VPS (1 vCPU, 1 GB RAM minimum)
+- **SSH access** — Key-based authentication configured
+- **Node.js 18+** — OpenClaw runs on Node
+- **API key** — Anthropic, OpenAI, or other provider
+- **Messaging account** — Telegram bot token, Signal number, or Discord bot
+
+---
+
+## Setup walkthrough
+
+This documents setup on an AWS EC2 instance with Telegram.
+
+### 1. Install OpenClaw
+
+```bash
+# Install Node.js if needed
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install OpenClaw globally
+sudo npm install -g openclaw
+```
+
+### 2. Run the setup wizard
+
+```bash
+openclaw doctor
+```
+
+The wizard configures:
+- API key
+- Model selection (Opus, Sonnet, Haiku)
+- Workspace directory
+- Messaging channels
+
+### 3. Configure Telegram
+
+Create a bot via [@BotFather](https://t.me/botfather):
+
+1. Send `/newbot` and follow the prompts
+2. Copy the bot token
+3. Add to OpenClaw config when prompted
+
+Approve your user with:
+
+```bash
+openclaw pairing approve telegram <CODE>
+```
+
+### 4. Run as a service
+
+```bash
+# Install systemd service
+openclaw gateway install
+
+# Start the service
+openclaw gateway start
+
+# Check status
+openclaw status
+```
+
+The agent now runs persistently and survives reboots.
+
+---
+
+## Security hardening
+
+A server running an AI with shell access requires careful security.
+
+### Firewall
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow ssh
+sudo ufw enable
+```
+
+### Fail2ban (SSH protection)
+
+```bash
+sudo apt install fail2ban
+
+sudo tee /etc/fail2ban/jail.local << 'EOF'
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 3600
+findtime = 600
+EOF
+
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
+```
+
+After 3 failed SSH attempts in 10 minutes, the IP is banned for 1 hour.
+
+### File permissions
+
+```bash
+chmod 700 ~/.openclaw
+chmod 600 ~/.openclaw/openclaw.json
+```
+
+Config files contain API keys. Restrict access.
+
+### User allowlist
+
+OpenClaw uses pairing mode — unknown users can't interact without approval. Approved users are stored in:
+
+```
+~/.openclaw/credentials/telegram-allowFrom.json
+```
+
+---
+
+## Memory and context
+
+OpenClaw maintains workspace files that persist:
+
+```
+~/.openclaw/workspace/
+├── AGENTS.md      # Agent behavior guidelines
+├── SOUL.md        # Personality and boundaries
+├── USER.md        # Info about you
+├── MEMORY.md      # Long-term curated memory
+├── TOOLS.md       # Local tool notes
+└── memory/
+    └── 2026-02-02.md  # Daily logs
+```
+
+**What to put in memory:**
+- Decisions and their rationale
+- Project context and preferences
+- Lessons learned
+- Recurring tasks
+
+Memory is continuity. Without it, every session starts from zero.
+
+---
+
+## How I use this
+
+1. **Message from phone** — ask the agent to research, draft, or check status
+2. **Agent works** — it has server access, can search web, read files, run commands
+3. **Response arrives** — results come via Telegram
+4. **Agent remembers** — context persists for follow-ups
+
+Works well for:
+- Quick research while away from desk
+- Drafting content that syncs to cloud storage
+- Monitoring server health
+- Managing recurring tasks
+
+---
+
+## Troubleshooting
+
+| Problem | Likely cause | Fix |
+|---------|-------------|-----|
+| Bot not responding | Service stopped | `openclaw gateway start` |
+| "Access not configured" | User not approved | `openclaw pairing approve telegram <code>` |
+| Commands timeout | Network/firewall | Check `ufw status`, security groups |
+| High memory usage | Context too large | Restart gateway |
+| Can't SSH | Banned by fail2ban | `sudo fail2ban-client set sshd unbanip <IP>` |
+
+---
+
+## Sources
+
+- [OpenClaw documentation](https://docs.openclaw.ai) — official setup guides
+- [OpenClaw GitHub](https://github.com/openclaw/openclaw) — source code
+- [Anthropic API pricing](https://www.anthropic.com/pricing) — token costs
+- [Fail2ban documentation](https://www.fail2ban.org) — intrusion prevention
+
+---
+
+*This setup runs 24/7 on a micro EC2 instance. Total infrastructure cost is manageable for an always-available assistant.*

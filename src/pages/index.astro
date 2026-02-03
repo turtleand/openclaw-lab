@@ -1,0 +1,145 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const topics = await getCollection('topics');
+
+// Group topics by module
+const modules = [
+  {
+    id: 0,
+    title: 'Module 0: Setup & Safety',
+    description: 'Getting started with persistent AI agents safely',
+    topics: topics.filter(t => t.data.module === 'Module 0: Setup & Safety'),
+    planned: [
+      { title: 'Security best practices', description: 'Sandboxing, permissions, and API key management' },
+    ]
+  },
+  {
+    id: 1,
+    title: 'Module 1: Hosting & Deployment',
+    description: 'Running your agent in the cloud',
+    topics: [],
+    planned: [
+      { title: 'AWS EC2 setup', description: 'Deploy on Amazon EC2 with systemd' },
+      { title: 'DigitalOcean droplet', description: 'One-click deployment guide' },
+      { title: 'Docker containers', description: 'Containerized agent deployment' },
+    ]
+  },
+  {
+    id: 2,
+    title: 'Module 2: Skills & Integrations',
+    description: 'Extending your agent capabilities',
+    topics: [],
+    planned: [
+      { title: 'Telegram integration', description: 'Connect via Telegram bot' },
+      { title: 'Discord bot', description: 'Run your agent on Discord' },
+      { title: 'Custom skills', description: 'Build and deploy custom tools' },
+    ]
+  },
+  {
+    id: 3,
+    title: 'Module 3: Use Cases',
+    description: 'Practical applications and workflows',
+    topics: [],
+    planned: [
+      { title: 'Research assistant', description: 'Automated research and summarization' },
+      { title: 'Code review bot', description: 'Automated PR reviews' },
+      { title: 'Personal knowledge base', description: 'Memory and note-taking workflows' },
+    ]
+  },
+];
+
+function getStatusIcon(status: string) {
+  switch (status) {
+    case 'done': return { icon: '✓', class: 'status-done' };
+    case 'in-progress': return { icon: '◐', class: 'status-in-progress' };
+    default: return { icon: '○', class: 'status-planned' };
+  }
+}
+---
+
+<BaseLayout title="Home">
+  <!-- Hero Section -->
+  <section class="py-16 md:py-24">
+    <div class="container text-center">
+      <!-- Signal hero card -->
+      <div class="card max-w-2xl mx-auto mb-8">
+        <div class="module-badge mb-4">
+          <span class="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+          Open Source
+        </div>
+        <h1 class="text-4xl md:text-5xl font-bold mb-4">
+          Open<span class="text-accent">Claw</span>
+        </h1>
+        <p class="text-lg text-muted max-w-xl mx-auto">
+          Learn to deploy and manage persistent AI agents. Tutorials, security guides, and practical examples.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Module Rows -->
+  <section class="pb-16">
+    <div class="container">
+      <div class="space-y-4">
+        {modules.map((module) => (
+          <details class="group card" open={module.id === 0}>
+            <summary class="cursor-pointer list-none flex items-center justify-between">
+              <div>
+                <h2 class="text-xl font-semibold mb-1">{module.title}</h2>
+                <p class="text-sm text-muted">{module.description}</p>
+              </div>
+              <svg class="w-5 h-5 text-muted transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </summary>
+
+            <div class="mt-6 space-y-3">
+              {/* Published topics */}
+              {module.topics.map((topic) => {
+                const status = getStatusIcon(topic.data.status);
+                return (
+                  <a
+                    href={`/topics/${topic.slug}`}
+                    class="block p-4 rounded-lg border border-border bg-panel-soft hover:border-accent transition-colors no-underline group/item"
+                  >
+                    <div class="flex items-start gap-3">
+                      <span class={`text-lg ${status.class}`}>{status.icon}</span>
+                      <div class="flex-1">
+                        <h3 class="font-medium text-ink group-hover/item:text-accent transition-colors">
+                          {topic.data.title}
+                        </h3>
+                        <p class="text-sm text-muted mt-1">{topic.data.summary}</p>
+                      </div>
+                      <svg class="w-4 h-4 text-muted group-hover/item:text-accent transition-colors mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </a>
+                );
+              })}
+
+              {/* Planned topics */}
+              {module.planned.map((item) => (
+                <div class="p-4 rounded-lg border border-border border-dashed bg-transparent">
+                  <div class="flex items-start gap-3">
+                    <span class="text-lg status-planned">○</span>
+                    <div>
+                      <h3 class="font-medium text-muted">{item.title}</h3>
+                      <p class="text-sm text-muted/70 mt-1">{item.description}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {module.topics.length === 0 && module.planned.length === 0 && (
+                <p class="text-sm text-muted py-4 text-center">Coming soon</p>
+              )}
+            </div>
+          </details>
+        ))}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

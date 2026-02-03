@@ -1,0 +1,56 @@
+---
+const navItems = [
+  { href: '/', label: 'Home' },
+  { href: '/topics/persistent-agents', label: 'Topics' },
+];
+
+const currentPath = Astro.url.pathname;
+---
+
+<header class="sticky top-0 z-50 border-b border-[var(--header-border)] bg-[var(--header-bg)] backdrop-blur-[14px]">
+  <div class="container py-3 flex items-center justify-between">
+    <!-- Brand lockup -->
+    <a href="/" class="flex items-center gap-2 text-ink hover:text-accent no-underline transition-colors">
+      <div class="w-8 h-8 rounded-pill bg-accent/10 flex items-center justify-center">
+        <svg class="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3L4 9v12h16V9l-8-6z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9 21v-6h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="font-semibold text-lg">OpenClaw</span>
+    </a>
+
+    <!-- Navigation -->
+    <nav class="flex items-center gap-4">
+      {navItems.map(({ href, label }) => (
+        <a
+          href={href}
+          class:list={[
+            'text-sm font-medium transition-colors no-underline px-3 py-1.5 rounded-pill',
+            currentPath === href || (href !== '/' && currentPath.startsWith(href))
+              ? 'bg-accent/10 text-accent'
+              : 'text-muted hover:text-ink hover:bg-panel-soft'
+          ]}
+        >
+          {label}
+        </a>
+      ))}
+
+      <!-- Theme toggle -->
+      <button
+        id="theme-toggle"
+        class="p-2 rounded-pill text-muted hover:text-ink hover:bg-panel-soft transition-colors"
+        aria-label="Toggle theme"
+      >
+        <!-- Sun icon (shown in dark mode) -->
+        <svg class="w-5 h-5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        <!-- Moon icon (shown in light mode) -->
+        <svg class="w-5 h-5 block dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+        </svg>
+      </button>
+    </nav>
+  </div>
+</header>
