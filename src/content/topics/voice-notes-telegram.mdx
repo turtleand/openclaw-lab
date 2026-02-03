@@ -1,0 +1,370 @@
+---
+title: "Voice notes with Telegram"
+module: "Module 0: Setup & Safety"
+subtopic: "voice-notes-telegram"
+summary: "Send voice messages to your AI agent and have them transcribed and executed."
+status: "done"
+articles: []
+---
+
+## The problem
+
+Voice input is faster than typing, especially on mobile. You want to send a voice note to your OpenClaw agent and have it understand what you said.
+
+OpenClaw has built-in audio transcription support via Deepgram, but there's a catch: **it doesn't work automatically with Telegram voice notes** (as of v2026.1.30). The voice files get saved, but the transcription pipeline doesn't trigger. The agent receives an empty message.
+
+This appears to be a Telegram-specific issue. The built-in transcription may only work for WhatsApp, based on documentation references to "WhatsApp Web channel behavior."
+
+Until this is fixed upstream, here's a workaround that works reliably.
+
+---
+
+## The solution
+
+We build a manual transcription system:
+
+1. **Voice files are saved** — OpenClaw already saves incoming audio to `~/.openclaw/media/inbound/`
+2. **Trigger word activates transcription** — Send "audio" after your voice note
+3. **Script transcribes via Deepgram API** — Converts speech to text with retry logic
+4. **Agent receives and executes** — Treats the transcription as an instruction
+
+The flow becomes:
+
+```
+[Voice note] → [Type "audio"] → [Agent transcribes] → [Agent executes instruction]
+```
+
+Not as seamless as automatic transcription, but reliable and fast.
+
+---
+
+## Why this approach
+
+**Why not wait for a fix?**
+
+The upstream issue might take time. This workaround lets you use voice input today.
+
+**Why Deepgram?**
+
+- Deepgram's `whisper-large` model handles Telegram's Opus audio format well
+- Free tier gives $200 credit (~770 hours of audio)
+- Simple API, no complex setup
+
+**Why a trigger word?**
+
+Without automatic transcription, the agent doesn't know a voice note arrived. The trigger word ("audio") signals: "transcribe the latest file and treat it as my instruction."
+
+---
+
+## Requirements
+
+Before starting:
+
+- **OpenClaw running on a server** — with Telegram configured
+- **Deepgram account** — free tier at [deepgram.com](https://deepgram.com)
+- **ffmpeg installed** — for audio conversion
+- **curl and jq** — for API calls and JSON parsing
+
+---
+
+## Setup walkthrough
+
+### 1. Get a Deepgram API key
+
+1. Sign up at [console.deepgram.com](https://console.deepgram.com)
+2. Create a new API key with "Usage" permissions
+3. Copy the key — you'll need it in the next step
+
+### 2. Add the API key to your environment
+
+Add to `~/.bashrc`:
+
+```bash
+export DEEPGRAM_API_KEY="your-key-here"
+```
+
+Reload:
+
+```bash
+source ~/.bashrc
+```
+
+**Important:** If OpenClaw runs as a systemd service, environment variables from `.bashrc` aren't available. Add the key to the service file:
+
+```bash
+# Edit the service file
+nano ~/.config/systemd/user/openclaw-gateway.service
+
+# Add under [Service]:
+Environment=DEEPGRAM_API_KEY=your-key-here
+
+# Reload and restart
+systemctl --user daemon-reload
+systemctl --user restart openclaw-gateway
+```
+
+### 3. Install dependencies
+
+```bash
+sudo apt install ffmpeg jq curl
+```
+
+### 4. Create the transcription script
+
+Create `~/.openclaw/scripts/transcribe-deepgram`:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+FILE="$1"
+LANG="${2:-en}"
+
+if [[ -z "$DEEPGRAM_API_KEY" ]]; then
+  echo "Error: DEEPGRAM_API_KEY not set" >&2
+  exit 1
+fi
+
+if [[ ! -f "$FILE" ]]; then
+  echo "Error: File not found: $FILE" >&2
+  exit 1
+fi
+
+# Convert to WAV for better compatibility
+TMP_WAV=$(mktemp --suffix=.wav)
+trap "rm -f $TMP_WAV" EXIT
+
+ffmpeg -y -i "$FILE" -ar 16000 -ac 1 "$TMP_WAV" 2>/dev/null
+
+# Call Deepgram API
+RESPONSE=$(curl -s -X POST "https://api.deepgram.com/v1/listen?model=whisper-large&language=${LANG}" \
+  -H "Authorization: Token $DEEPGRAM_API_KEY" \
+  -H "Content-Type: audio/wav" \
+  --data-binary "@$TMP_WAV")
+
+# Extract transcript
+TRANSCRIPT=$(echo "$RESPONSE" | jq -r '.results.channels[0].alternatives[0].transcript // empty')
+
+if [[ -z "$TRANSCRIPT" ]]; then
+  echo "Error: No transcript returned" >&2
+  echo "Response: $RESPONSE" >&2
+  exit 1
+fi
+
+echo "$TRANSCRIPT"
+```
+
+Make executable:
+
+```bash
+chmod +x ~/.openclaw/scripts/transcribe-deepgram
+```
+
+### 5. Create the robust wrapper script
+
+This script adds retry logic and auto-cleanup. Create `~/.openclaw/scripts/transcribe-robust`:
+
+```bash
+#!/usr/bin/env bash
+set -uo pipefail
+
+INBOUND_DIR="$HOME/.openclaw/media/inbound"
+SCRIPT_DIR="$HOME/.openclaw/scripts"
+
+# Handle "latest" keyword
+if [[ "${1:-}" == "latest" ]]; then
+  FILE=$(ls -t "$INBOUND_DIR"/file_*---*.ogg 2>/dev/null | head -1)
+  if [[ -z "$FILE" ]]; then
+    echo "# No audio files found in $INBOUND_DIR"
+    exit 1
+  fi
+  echo "# Found latest file: $FILE"
+else
+  FILE="$1"
+fi
+
+LANG="${2:-en}"
+MAX_ATTEMPTS="${3:-3}"
+DELAY="${4:-2}"
+
+echo "# Attempting transcription of: $FILE"
+echo "# Max attempts: $MAX_ATTEMPTS, Delay: ${DELAY}s"
+
+for ((i=1; i<=MAX_ATTEMPTS; i++)); do
+  echo "# Attempt $i/$MAX_ATTEMPTS..."
+
+  # Wait for file to stabilize (still downloading?)
+  PREV_SIZE=0
+  CURR_SIZE=$(stat -c%s "$FILE" 2>/dev/null || echo "0")
+  while [[ "$CURR_SIZE" != "$PREV_SIZE" ]]; do
+    sleep 0.5
+    PREV_SIZE=$CURR_SIZE
+    CURR_SIZE=$(stat -c%s "$FILE" 2>/dev/null || echo "0")
+  done
+  echo "# File stable at $CURR_SIZE bytes, transcribing..."
+
+  # Attempt transcription
+  RESULT=$("$SCRIPT_DIR/transcribe-deepgram" "$FILE" "$LANG" 2>&1)
+  EXIT_CODE=$?
+
+  if [[ $EXIT_CODE -eq 0 && -n "$RESULT" && "$RESULT" != "Error:"* ]]; then
+    echo "# Success on attempt $i"
+    echo "$RESULT"
+
+    # Auto-delete the processed file
+    rm -f "$FILE"
+    echo "# Deleted: $FILE" >&2
+    exit 0
+  fi
+
+  echo "# Attempt $i failed: $RESULT" >&2
+
+  if [[ $i -lt $MAX_ATTEMPTS ]]; then
+    echo "# Waiting ${DELAY}s before retry..."
+    sleep "$DELAY"
+  fi
+done
+
+echo "# All $MAX_ATTEMPTS attempts failed"
+exit 1
+```
+
+Make executable:
+
+```bash
+chmod +x ~/.openclaw/scripts/transcribe-robust
+```
+
+### 6. Configure your agent to use the trigger word
+
+Add to your agent's workspace files (e.g., `TOOLS.md` or `MEMORY.md`):
+
+```markdown
+### Voice Transcription
+
+**Trigger word: "audio"** — When you send just "audio", immediately transcribe the latest voice note.
+
+**Process:**
+1. Run `~/.openclaw/scripts/transcribe-robust latest`
+2. Reply with the transcription
+3. Execute the transcribed instruction
+
+**Why:** OpenClaw's built-in Telegram audio transcription doesn't trigger automatically. This manual trigger is the workaround.
+```
+
+The agent will learn to respond to "audio" by running the transcription script.
+
+---
+
+## Usage
+
+1. **Send a voice note** via Telegram to your bot
+2. **Type "audio"** as a follow-up message
+3. **Agent transcribes** and shows you what it heard
+4. **Agent executes** the instruction from the voice note
+
+Example exchange:
+
+```
+You: [voice note: "Check the disk usage on the server"]
+You: audio
+
+Agent: **Transcription:**
+> "Check the disk usage on the server"
+
+[runs df -h and shows results]
+```
+
+---
+
+## How I use this
+
+Voice notes are my primary input method. Typing on mobile is slow. Speaking is fast.
+
+My workflow:
+
+- **Walking or commuting** — send voice instructions
+- **Quick tasks** — "check my calendar", "what's the weather"
+- **Complex requests** — explain context verbally, faster than typing
+
+The extra "audio" message is a small friction, but acceptable until automatic transcription works.
+
+---
+
+## Troubleshooting
+
+| Problem | Likely cause | Fix |
+|---------|--------------|-----|
+| "DEEPGRAM_API_KEY not set" | Env var missing | Add to `.bashrc` and service file |
+| "No audio files found" | Files cleaned up or wrong path | Check `~/.openclaw/media/inbound/` |
+| Empty transcript | Wrong model for codec | Use `whisper-large`, not `nova-2` |
+| Permission denied | Script not executable | Run `chmod +x` on both scripts |
+| File still downloading | Transcription too fast | Script has stability check, should handle this |
+
+### Verifying files are saved
+
+Check that Telegram voice notes arrive:
+
+```bash
+ls -la ~/.openclaw/media/inbound/
+```
+
+You should see files like `file_14---83e1fcde-69a1-4773-9cb0-f771f7bdb8b7.ogg`.
+
+### Testing transcription manually
+
+```bash
+~/.openclaw/scripts/transcribe-robust latest
+```
+
+Should output the transcribed text if a voice file exists.
+
+---
+
+## Cost
+
+Deepgram pricing after free tier:
+
+- **Pay-as-you-go:** ~$0.0043/minute
+- **Free tier:** $200 credit (~770 hours)
+
+For typical personal use, the free tier lasts a long time.
+
+---
+
+## Why not use OpenClaw's built-in transcription?
+
+OpenClaw does have audio transcription config:
+
+```json
+"tools.media.audio": {
+  "enabled": true,
+  "language": "en",
+  "models": [{"provider": "deepgram", "model": "whisper-large"}]
+}
+```
+
+This config is correct, and I have it enabled. The issue is that **Telegram voice notes don't trigger the transcription pipeline**. The files save, but the agent receives no transcript.
+
+I've reported this to the OpenClaw community. It may be fixed in a future release, or it may be a Telegram-specific limitation. This workaround bridges the gap.
+
+---
+
+## Future improvements
+
+If automatic transcription gets fixed upstream:
+
+- Remove the trigger word requirement
+- Agent would receive `{{Transcript}}` automatically in the message
+- These scripts become backup/fallback only
+
+Until then, "voice note + audio" is a reliable pattern.
+
+---
+
+## Sources
+
+- [Deepgram documentation](https://developers.deepgram.com/) — API reference
+- [OpenClaw documentation](https://docs.openclaw.ai) — official setup guides
+- [OpenClaw GitHub](https://github.com/openclaw/openclaw) — source and issues
+- [ffmpeg documentation](https://ffmpeg.org/documentation.html) — audio conversion
