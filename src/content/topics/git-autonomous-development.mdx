@@ -1,0 +1,107 @@
+---
+title: "Delegating Development to Your Agent"
+module: "Module 0: Setup & Safety"
+subtopic: "git-autonomous-development"
+summary: "Configure Git access so OpenClaw can develop on your behalf while you're away."
+status: "done"
+articles: []
+---
+
+## Why Delegate?
+
+Developer time is limited, so use the agent for routine implementation work.
+
+With Git access, the agent can prepare feature branches, fix scoped bugs, and scaffold components while you are doing other tasks. It can also run checks and open a draft PR with a summary of changes.
+
+You still control the final decision: review the diff, request edits, and merge only what meets your standards.
+
+---
+
+## Two Approaches
+
+### Read-Only (Conservative)
+
+Agent analyzes but doesn't touch code:
+- Uses `gh` CLI for read operations
+- Reviews PRs, monitors CI, summarizes issues
+- Sends insights via Telegram—you act on GitHub
+
+**Best for:** Sensitive repos, building trust.
+
+### Branch-Based Write (Recommended)
+
+Agent pushes code to branches, never to main:
+- Has SSH key with push access
+- Creates commits, opens PRs
+- You review and merge
+
+**Best for:** Personal projects, true autonomy.
+
+---
+
+## Simple Setup (5 minutes)
+
+The following setup is intentionally minimal and works well for a solo repo. As reliability needs increase, move to stronger permission models: use a dedicated bot account, or place repos in a GitHub organization and grant the bot least-privilege access. That gives you cleaner separation, better auditability, and safer scaling when collaborators are added.
+
+**1. Generate SSH key:**
+```bash
+ssh-keygen -t ed25519 -C "openclaw-bot@yourdomain.com"
+```
+
+**2. Add to GitHub:**
+```bash
+cat ~/.ssh/id_ed25519.pub
+# Copy → GitHub → Settings → SSH Keys → New
+```
+
+**3. Clone and configure:**
+```bash
+cd ~/projects/your-repo
+git config user.name "OpenClaw Bot"
+git config user.email "openclaw-bot@yourdomain.com"
+```
+
+**4. Add to SOUL.md:**
+```markdown
+## Git Workflow
+- Always work on branches — never push to main
+- Human merges — I create PRs, you decide
+```
+
+---
+
+## Protection Layer
+
+Even if the agent misbehaves, GitHub should block it.
+
+**Enable branch protection on main:**
+- ☑️ Require pull request before merging
+- ☑️ Require approvals
+- ☑️ Block force pushes
+
+Your agent can push branches. It cannot touch main.
+
+---
+
+## The Workflow
+
+**You say:** "Add dark mode to settings. Create a PR."
+
+**Agent does:**
+1. Creates `feature/dark-mode`
+2. Implements changes
+3. Commits and pushes
+4. Sends you the PR link
+
+**You do:** Review on your phone. Merge when ready.
+
+---
+
+## Key Takeaways
+
+- **SSH keys in `~/.ssh/`** — never in code
+- **Branch protection always on** — defense in depth
+- **SOUL.md defines constraints** — agent follows your rules
+- **Start conservative** — trust compounds
+
+Productivity increases while you're idle.
