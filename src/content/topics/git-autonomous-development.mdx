@@ -7,286 +7,117 @@ status: "done"
 articles: []
 ---
 
-## The Case for Delegation
+## Why Delegate?
 
-There's something uncomfortable about giving an AI access to your codebase. We've spent years protecting our repositories, reviewing every pull request, guarding main like it's sacred ground.
+You have limited hours. Your agent doesn't.
 
-But here's the reality: you have limited hours. Your agent doesn't.
+While you sleep, commute, or live your life, an AI with Git access can draft features, fix bugs, and scaffold components. The code waits for your review—the work happens without you.
 
-When you're asleep, commuting, or simply living your life, an AI assistant with Git access can draft that feature branch, scaffold that component, or fix that typo you've been ignoring. The code waits for your review—but the work happens without you.
-
-This isn't about replacing yourself. It's about extending your capacity.
-
-> "I am not staying for their recognition. I am staying to build my exit runway."
-
-The same principle applies to development: delegate the labor, retain the leverage.
+> Delegation isn't laziness. It's leverage.
 
 ---
 
-## Two Patterns for Git Access
+## Two Approaches
 
-The community has settled on two main approaches. Choose based on your trust level and workflow.
+### Read-Only (Conservative)
 
-### Pattern 1: Read-Only + Notifications
+Agent analyzes but doesn't touch code:
+- Uses `gh` CLI for read operations
+- Reviews PRs, monitors CI, summarizes issues
+- Sends insights via Telegram—you act on GitHub
 
-The conservative approach. Your agent can see everything but change nothing.
+**Best for:** Sensitive repos, building trust.
 
-**How it works:**
-- Agent uses `gh` CLI for read operations
-- Analyzes PRs, reviews issues, monitors CI
-- Sends summaries via Telegram or Slack
-- You take action on GitHub directly
+### Branch-Based Write (Recommended)
 
-**Best for:**
-- Enterprise environments with compliance requirements
-- Repos with sensitive production code
-- Teams still building trust with AI tools
+Agent pushes code to branches, never to main:
+- Has SSH key with push access
+- Creates commits, opens PRs
+- You review and merge
 
-**Setup:**
-```bash
-# Install GitHub CLI
-sudo apt install gh
-
-# Authenticate (read-only scope)
-gh auth login --scopes "repo:read"
-```
-
-The agent can now run commands like:
-```bash
-gh pr view 42 --repo owner/repo
-gh issue list --label "bug"
-gh run list --limit 5
-```
-
-All insight, no risk.
+**Best for:** Personal projects, true autonomy.
 
 ---
 
-### Pattern 2: Branch-Based Write Access
+## Setup (5 minutes)
 
-The developer's choice. Your agent can push code—but only to branches.
-
-**How it works:**
-- Agent has SSH key with push access
-- Works exclusively on feature branches
-- Creates commits, pushes changes
-- You review and merge via PR
-
-**Best for:**
-- Solo developers who want true delegation
-- Personal projects and experiments
-- Teams with strong branch protection
-
-**Setup:**
-
-1. **Generate a dedicated SSH key:**
+**1. Generate SSH key:**
 ```bash
-ssh-keygen -t ed25519 -C "openclaw-bot@yourdomain.com" -f ~/.ssh/id_ed25519
+ssh-keygen -t ed25519 -C "openclaw-bot@yourdomain.com"
 ```
 
-2. **Add public key to GitHub:**
+**2. Add to GitHub:**
 ```bash
 cat ~/.ssh/id_ed25519.pub
-# Copy output → GitHub → Settings → SSH Keys → New
+# Copy → GitHub → Settings → SSH Keys → New
 ```
 
-3. **Test the connection:**
+**3. Clone and configure:**
 ```bash
-ssh -T git@github.com
-# Should show: "Hi username! You've successfully authenticated..."
-```
-
-4. **Clone your repos:**
-```bash
-mkdir -p ~/projects
-cd ~/projects
-git clone git@github.com:yourname/your-repo.git
-```
-
-5. **Configure agent identity:**
-```bash
-cd your-repo
+cd ~/projects/your-repo
 git config user.name "OpenClaw Bot"
 git config user.email "openclaw-bot@yourdomain.com"
 ```
 
-Now your agent can develop. But the guardrails matter.
-
----
-
-## The Branch Discipline
-
-Write access without discipline is chaos. Establish rules your agent follows.
-
-**In your workspace's SOUL.md, add:**
-
+**4. Add to SOUL.md:**
 ```markdown
 ## Git Workflow
-
-- **Always work on branches** — never commit directly to main or master
-- **Human merges** — I create PRs, human decides whether to merge
-- **No pushing to main/master** unless explicitly asked
-- Branch naming: feature/, fix/, refactor/
-- Repos live in ~/projects/
+- Always work on branches — never push to main
+- Human merges — I create PRs, you decide
 ```
 
-The agent reads SOUL.md at session start. These become behavioral constraints.
+---
 
-**Why this works:**
-- Instructions are version-controlled
-- Rules persist across sessions
-- You can audit and evolve the constraints
+## Protection Layer
+
+Even if the agent misbehaves, GitHub should block it.
+
+**Enable branch protection on main:**
+- ☑️ Require pull request before merging
+- ☑️ Require approvals
+- ☑️ Block force pushes
+
+Your agent can push branches. It cannot touch main.
 
 ---
 
-## GitHub Protection Layer
+## The Workflow
 
-Software constraints are good. Platform constraints are better.
-
-Even if your agent misbehaves, GitHub should block direct pushes to main.
-
-**Enable branch protection:**
-
-1. Go to repo → Settings → Branches
-2. Add rule for `main`
-3. Enable:
-   - ☑️ Require pull request before merging
-   - ☑️ Require approvals (1 minimum)
-   - ☑️ Dismiss stale PR approvals when new commits are pushed
-   - ☑️ Block force pushes
-
-**For organizations:**
-
-Create org-wide rulesets that apply to all repos. Add your personal account to the bypass list, but not the bot. The bot can push branches and create PRs—but never touch main directly.
-
----
-
-## What Delegation Looks Like
-
-Once configured, the workflow becomes natural:
-
-**You say:**
-> "Add dark mode support to the settings page. Create a PR when done."
+**You say:** "Add dark mode to settings. Create a PR."
 
 **Agent does:**
-1. Creates branch `feature/dark-mode-settings`
-2. Reads existing code structure
-3. Implements changes
-4. Commits with descriptive message
-5. Pushes to remote
-6. Sends you the PR link
+1. Creates `feature/dark-mode`
+2. Implements changes
+3. Commits and pushes
+4. Sends you the PR link
 
-**You do:**
-1. Review the diff on your phone
-2. Approve or request changes
-3. Merge when satisfied
-
-The cognitive load shifts. You're reviewing, not writing. Directing, not typing.
+**You do:** Review on your phone. Merge when ready.
 
 ---
 
-## Practical Considerations
+## Trust Gradient
 
-### Commit Messages
+Start small. Expand as confidence grows.
 
-Instruct your agent on commit style:
-
-```markdown
-## Commit Messages
-
-Use conventional commits:
-- feat: new feature
-- fix: bug fix  
-- docs: documentation
-- refactor: code restructure
-- test: adding tests
-
-Include context. Future-you reads these.
-```
-
-### Multiple Repos
-
-Keep projects organized:
-
-```
-~/projects/
-├── your-blog/
-├── your-app/
-├── your-lab/
-└── audit/          # Security reports
-```
-
-The agent navigates between repos as needed.
-
-### When You Return
-
-After time away, catch up efficiently:
-
-```bash
-# What did the agent do?
-cd ~/projects/your-repo
-git log --author="OpenClaw" --oneline -20
-```
-
-Review the trail. Merge what's ready. Redirect what isn't.
+| Phase | Access | Your Role |
+|-------|--------|-----------|
+| Week 1-2 | Read-only | You take all actions |
+| Week 3-4 | Branch write | Heavy review |
+| Month 2+ | Full delegation | Architecture + review |
 
 ---
 
-## The Trust Gradient
-
-Start conservative. Expand as confidence grows.
-
-**Week 1-2:**
-- Read-only access
-- Agent reviews PRs, summarizes issues
-- You take all actions
-
-**Week 3-4:**
-- Branch write access enabled
-- Agent creates small PRs
-- Heavy review on your part
-
-**Month 2+:**
-- Agent handles routine development
-- You focus on architecture and review
-- Merge with confidence
-
-Trust is earned. But it compounds.
-
----
-
-## Security Reminders
+## Key Takeaways
 
 - **SSH keys in `~/.ssh/`** — never in code
-- **Audit git history** — `git log --author="OpenClaw"` regularly
 - **Branch protection always on** — defense in depth
-- **Separate bot account** (optional) — cleaner permission boundaries
-- **No production repos** — experimental first, critical never
+- **SOUL.md defines constraints** — agent follows your rules
+- **Start conservative** — trust compounds
+
+> Senior = LEVERAGE not LABOR.
+
+The code gets written while you sleep. The vision remains yours.
 
 ---
 
-## Why This Matters
-
-We're at an inflection point. The developers who figure out human-AI collaboration will outpace those who don't.
-
-Delegation isn't laziness. It's leverage.
-
-Your agent handles the implementation. You hold the vision.
-
-The code gets written while you sleep. The architecture remains yours.
-
-> "Senior = LEVERAGE not LABOR."
-
-Git access is just the mechanism. The real shift is in how you think about your own capacity.
-
----
-
-## Sources
-
-- [OpenClaw documentation](https://docs.openclaw.ai)
-- [GitHub branch protection](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches)
-- [gh CLI manual](https://cli.github.com/manual/)
-
----
-
-*This article was drafted by an OpenClaw agent, reviewed and merged by a human. The workflow works.*
+*Drafted by an OpenClaw agent. Reviewed and merged by a human.*
