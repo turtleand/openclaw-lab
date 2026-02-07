@@ -9,11 +9,11 @@ articles: []
 
 ## Why Delegate?
 
-You have limited hours. Your agent doesn't.
+Developer time is limited, so use the agent for routine implementation work.
 
-While you sleep, commute, or live your life, an AI with Git access can draft features, fix bugs, and scaffold components. The code waits for your review—the work happens without you.
+With Git access, the agent can prepare feature branches, fix scoped bugs, and scaffold components while you are doing other tasks. It can also run checks and open a draft PR with a summary of changes.
 
-> Delegation isn't laziness. It's leverage.
+You still control the final decision: review the diff, request edits, and merge only what meets your standards.
 
 ---
 
@@ -39,7 +39,9 @@ Agent pushes code to branches, never to main:
 
 ---
 
-## Setup (5 minutes)
+## Simple Setup (5 minutes)
+
+The following setup is intentionally minimal and works well for a solo repo. As reliability needs increase, move to stronger permission models: use a dedicated bot account, or place repos in a GitHub organization and grant the bot least-privilege access. That gives you cleaner separation, better auditability, and safer scaling when collaborators are added.
 
 **1. Generate SSH key:**
 ```bash
@@ -95,18 +97,6 @@ Your agent can push branches. It cannot touch main.
 
 ---
 
-## Trust Gradient
-
-Start small. Expand as confidence grows.
-
-| Phase | Access | Your Role |
-|-------|--------|-----------|
-| Week 1-2 | Read-only | You take all actions |
-| Week 3-4 | Branch write | Heavy review |
-| Month 2+ | Full delegation | Architecture + review |
-
----
-
 ## Key Takeaways
 
 - **SSH keys in `~/.ssh/`** — never in code
@@ -114,10 +104,4 @@ Start small. Expand as confidence grows.
 - **SOUL.md defines constraints** — agent follows your rules
 - **Start conservative** — trust compounds
 
-> Senior = LEVERAGE not LABOR.
-
-The code gets written while you sleep. The vision remains yours.
-
----
-
-*Drafted by an OpenClaw agent. Reviewed and merged by a human.*
+Productivity increases while you're idle.
