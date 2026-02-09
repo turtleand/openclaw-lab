@@ -71,12 +71,12 @@ Common patterns:
 {
   "schedule": {
     "kind": "at",
-    "atMs": 1770703200000
+    "at": "2026-02-09T22:00:00Z"
   }
 }
 ```
 
-Runs once at the specified Unix timestamp (milliseconds). Useful for reminders.
+Runs once at the specified ISO 8601 timestamp. Useful for reminders. One-shot jobs auto-delete after success by default.
 
 ---
 
@@ -136,11 +136,14 @@ Good for:
     "tz": "UTC"
   },
   "sessionTarget": "isolated",
+  "wakeMode": "next-heartbeat",
   "payload": {
     "kind": "agentTurn",
     "message": "Read the latest overnight briefing file and deliver it to Turtleand.",
-    "model": "sonnet",
-    "deliver": true,
+    "model": "sonnet"
+  },
+  "delivery": {
+    "mode": "announce",
     "channel": "telegram",
     "to": "5586308961"
   }
@@ -172,13 +175,15 @@ Good for:
   "name": "x-followup-reminder",
   "schedule": {
     "kind": "at",
-    "atMs": 1770703200000
+    "at": "2026-02-09T22:00:00Z"
   },
   "sessionTarget": "main",
+  "wakeMode": "now",
   "payload": {
     "kind": "systemEvent",
     "text": "REMINDER: Follow up on your X post with the blog link."
-  }
+  },
+  "deleteAfterRun": true
 }
 ```
 
@@ -193,10 +198,14 @@ Good for:
     "tz": "UTC"
   },
   "sessionTarget": "isolated",
+  "wakeMode": "next-heartbeat",
   "payload": {
     "kind": "agentTurn",
-    "message": "Run ~/.openclaw/scripts/backup-state auto and report results.",
-    "deliver": true,
+    "message": "Run ~/.openclaw/scripts/backup-state auto and report results."
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
     "to": "5586308961"
   }
 }
@@ -204,40 +213,93 @@ Good for:
 
 ---
 
-## Managing cron jobs
+## Managing cron jobs (CLI)
 
 ### List all jobs
 
-Ask your agent: "List all cron jobs" or use the cron tool directly.
-
-### Add a job
-
+```bash
+openclaw cron list
 ```
-cron action=add job={
-  "name": "my-reminder",
-  "schedule": {"kind": "cron", "expr": "0 9 * * *", "tz": "UTC"},
-  "payload": {"kind": "systemEvent", "text": "Good morning!"},
-  "sessionTarget": "main",
-  "enabled": true
-}
+
+### Add a one-shot reminder (main session)
+
+```bash
+openclaw cron add \
+  --name "Reminder" \
+  --at "2026-02-01T16:00:00Z" \
+  --session main \
+  --system-event "Reminder: check your goals for the week." \
+  --wake now \
+  --delete-after-run
+```
+
+### Add a recurring job (isolated session with delivery)
+
+```bash
+openclaw cron add \
+  --name "Morning brief" \
+  --cron "0 7 * * *" \
+  --tz "America/Los_Angeles" \
+  --session isolated \
+  --message "Summarize overnight updates." \
+  --announce \
+  --channel telegram \
+  --to "5586308961"
+```
+
+### Run a job manually
+
+```bash
+openclaw cron run <job-id>
+```
+
+### View run history
+
+```bash
+openclaw cron runs --id <job-id>
 ```
 
 ### Remove a job
 
-```
-cron action=remove jobId=<uuid>
-```
-
-### Update a job
-
-```
-cron action=update jobId=<uuid> patch={"enabled": false}
+```bash
+openclaw cron remove <job-id>
 ```
 
-### Run manually
+## JSON schema (for tool calls)
 
+If calling the cron tool directly from an agent:
+
+### One-shot main session job
+
+```json
+{
+  "name": "Reminder",
+  "schedule": { "kind": "at", "at": "2026-02-01T16:00:00Z" },
+  "sessionTarget": "main",
+  "wakeMode": "now",
+  "payload": { "kind": "systemEvent", "text": "Reminder text" },
+  "deleteAfterRun": true
+}
 ```
-cron action=run jobId=<uuid>
+
+### Recurring isolated job with delivery
+
+```json
+{
+  "name": "Morning brief",
+  "schedule": { "kind": "cron", "expr": "0 7 * * *", "tz": "America/Los_Angeles" },
+  "sessionTarget": "isolated",
+  "wakeMode": "next-heartbeat",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Summarize overnight updates."
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "5586308961"
+  }
+}
 ```
 
 ---
