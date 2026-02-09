@@ -1,0 +1,369 @@
+---
+title: "Cron Jobs & Scheduled Automation"
+module: "Module 0: Setup & Safety"
+subtopic: "cron-jobs-automation"
+summary: "Schedule recurring tasks, reminders, and automated check-ins with OpenClaw's built-in cron system."
+status: "done"
+articles:
+  - title: "AI Agents as Accountability Partners"
+    description: "Using escalating cron-based reminders to stay accountable to your goals"
+    type: "article"
+    status: "done"
+    link: "https://blog.turtleand.com/posts/ai-agents-accountability-partners/"
+---
+
+## What are cron jobs in OpenClaw?
+
+OpenClaw includes a built-in cron scheduler that lets your agent run tasks automatically — without you sending a message.
+
+Use cases:
+- **Morning briefings** — Agent compiles overnight insights and delivers them when you wake up
+- **Accountability nudges** — Reminders that escalate if you don't complete a goal
+- **Daily backups** — Automatic state sync to cloud storage
+- **Work check-ins** — Structured prompts at key moments in your day
+- **Security audits** — Daily reports on system health
+
+Think of it as:
+
+> "Your agent doing things on a schedule, not just when you ask."
+
+---
+
+## How cron jobs work
+
+Cron jobs in OpenClaw are managed internally by the Gateway — not as files on disk.
+
+**Key concepts:**
+- Jobs are created/modified via tool calls (`cron action=add/update/remove`)
+- Each job has a schedule (cron expression or one-time timestamp)
+- Jobs can target the main session or spawn isolated sessions
+- Jobs can deliver messages directly to Telegram/Discord/etc.
+
+---
+
+## Schedule types
+
+### Recurring (cron expression)
+
+```json
+{
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 9 * * 1-5",
+    "tz": "America/Argentina/Buenos_Aires"
+  }
+}
+```
+
+This runs at 09:00 Monday-Friday in the specified timezone.
+
+**Cron expression format:** `minute hour day-of-month month day-of-week`
+
+Common patterns:
+- `0 9 * * *` — Daily at 09:00
+- `0 9 * * 1-5` — Weekdays at 09:00
+- `0 */2 * * *` — Every 2 hours
+- `30 18 * * 5` — Fridays at 18:30
+
+### One-time (at timestamp)
+
+```json
+{
+  "schedule": {
+    "kind": "at",
+    "at": "2026-02-09T22:00:00Z"
+  }
+}
+```
+
+Runs once at the specified ISO 8601 timestamp. Useful for reminders. One-shot jobs auto-delete after success by default.
+
+---
+
+## Payload types
+
+### systemEvent (main session)
+
+Injects a message into the main session as if it were a system event:
+
+```json
+{
+  "sessionTarget": "main",
+  "payload": {
+    "kind": "systemEvent",
+    "text": "REMINDER: Check your GitHub commits for today."
+  }
+}
+```
+
+The agent wakes up, sees the message, and responds in context.
+
+### agentTurn (isolated session)
+
+Spawns a fresh session with its own context:
+
+```json
+{
+  "sessionTarget": "isolated",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Run the morning briefing compilation task.",
+    "model": "sonnet",
+    "deliver": true,
+    "channel": "telegram",
+    "to": "123456789"
+  }
+}
+```
+
+Good for:
+- Long-running tasks that shouldn't clutter main session
+- Different model/thinking settings
+- Direct delivery to a channel
+
+---
+
+## Real examples
+
+### Morning briefing delivery
+
+```json
+{
+  "name": "Morning Briefing Delivery",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 11 * * *",
+    "tz": "UTC"
+  },
+  "sessionTarget": "isolated",
+  "wakeMode": "next-heartbeat",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Read the latest overnight briefing file and deliver it to Turtleand.",
+    "model": "sonnet"
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "5586308961"
+  }
+}
+```
+
+### Accountability check with escalation
+
+```json
+{
+  "name": "content-goal-daily-check",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 9 * * 1-5",
+    "tz": "America/Argentina/Buenos_Aires"
+  },
+  "sessionTarget": "main",
+  "payload": {
+    "kind": "systemEvent",
+    "text": "CONTENT GOAL CHECK: Read memory/CONTENT-STATS.md. If weekly goals not met, calculate days behind and send reminders. Formula: 2^(daysBehind-1) notifications spread throughout the day."
+  }
+}
+```
+
+### One-time reminder
+
+```json
+{
+  "name": "x-followup-reminder",
+  "schedule": {
+    "kind": "at",
+    "at": "2026-02-09T22:00:00Z"
+  },
+  "sessionTarget": "main",
+  "wakeMode": "now",
+  "payload": {
+    "kind": "systemEvent",
+    "text": "REMINDER: Follow up on your X post with the blog link."
+  },
+  "deleteAfterRun": true
+}
+```
+
+### Daily backup
+
+```json
+{
+  "name": "daily-backup",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 23 * * *",
+    "tz": "UTC"
+  },
+  "sessionTarget": "isolated",
+  "wakeMode": "next-heartbeat",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Run ~/.openclaw/scripts/backup-state auto and report results."
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "5586308961"
+  }
+}
+```
+
+---
+
+## Managing cron jobs (CLI)
+
+### List all jobs
+
+```bash
+openclaw cron list
+```
+
+### Add a one-shot reminder (main session)
+
+```bash
+openclaw cron add \
+  --name "Reminder" \
+  --at "2026-02-01T16:00:00Z" \
+  --session main \
+  --system-event "Reminder: check your goals for the week." \
+  --wake now \
+  --delete-after-run
+```
+
+### Add a recurring job (isolated session with delivery)
+
+```bash
+openclaw cron add \
+  --name "Morning brief" \
+  --cron "0 7 * * *" \
+  --tz "America/Los_Angeles" \
+  --session isolated \
+  --message "Summarize overnight updates." \
+  --announce \
+  --channel telegram \
+  --to "5586308961"
+```
+
+### Run a job manually
+
+```bash
+openclaw cron run <job-id>
+```
+
+### View run history
+
+```bash
+openclaw cron runs --id <job-id>
+```
+
+### Remove a job
+
+```bash
+openclaw cron remove <job-id>
+```
+
+## JSON schema (for tool calls)
+
+If calling the cron tool directly from an agent:
+
+### One-shot main session job
+
+```json
+{
+  "name": "Reminder",
+  "schedule": { "kind": "at", "at": "2026-02-01T16:00:00Z" },
+  "sessionTarget": "main",
+  "wakeMode": "now",
+  "payload": { "kind": "systemEvent", "text": "Reminder text" },
+  "deleteAfterRun": true
+}
+```
+
+### Recurring isolated job with delivery
+
+```json
+{
+  "name": "Morning brief",
+  "schedule": { "kind": "cron", "expr": "0 7 * * *", "tz": "America/Los_Angeles" },
+  "sessionTarget": "isolated",
+  "wakeMode": "next-heartbeat",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Summarize overnight updates."
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "5586308961"
+  }
+}
+```
+
+---
+
+## Escalating accountability pattern
+
+A powerful pattern: reminders that increase in frequency the longer you avoid a goal.
+
+**Logic:**
+```python
+notifications_today = 2 ** (days_behind - 1)
+# Day 1: 1 notification
+# Day 2: 2 notifications
+# Day 3: 4 notifications
+# Day 4: 8 notifications
+```
+
+**Implementation:**
+1. Daily check job assesses goal completion
+2. If behind, spawns one-shot jobs for later notification slots
+3. Notifications spread across the day (harder to ignore)
+4. When goal is met, counter resets
+
+**Notification slots:**
+```
+["09:00", "11:00", "13:00", "15:00", "17:00", "19:00", "21:00", "22:30"]
+
+Day 1 = slot 0 only
+Day 2 = slots 0, 4
+Day 3 = slots 0, 2, 4, 6
+Day 4 = all 8 slots
+```
+
+This creates natural consequences for procrastination — configured by you, enforced by the agent.
+
+---
+
+## Best practices
+
+1. **Use timezone** — Always specify `tz` to avoid UTC confusion
+2. **Isolated for heavy tasks** — Long-running jobs shouldn't block main session
+3. **Deliver directly** — Use `deliver: true` for notifications that need immediate attention
+4. **One-shot for reminders** — Use `kind: "at"` for single-fire events
+5. **Name your jobs** — Descriptive names make management easier
+
+---
+
+## What's possible
+
+With cron jobs, your agent becomes proactive — not just reactive.
+
+Examples from a real setup:
+- 4-stage overnight briefing pipeline (04:00-07:00 UTC)
+- 6 daily work check-ins with strategy prompts
+- Weekly pattern analysis every Friday
+- Automatic backups at 23:00 UTC
+- Content goal tracking with escalating nudges
+
+The agent works while you sleep, and delivers results when you wake up.
+
+---
+
+## Further reading
+
+- [AI Agents as Accountability Partners](https://blog.turtleand.com/posts/ai-agents-accountability-partners/) — The accountability pattern in depth
+- [Persistent Agents](/topics/persistent-agents/) — Setting up your always-on agent
+- [OpenClaw Documentation](https://docs.openclaw.ai/automation/cron-jobs#cron-jobs) — Full cron API reference
