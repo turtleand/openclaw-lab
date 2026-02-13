@@ -27,6 +27,14 @@ const { title, description = 'Turtleand OpenClaw - Open-source AI agent document
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title} | Turtleand OpenClaw</title>
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Turtleand OpenClaw Lab",
+      "description": "Practical setup guides for the OpenClaw AI assistant platform",
+      "author": { "@type": "Person", "name": "Turtleand", "url": "https://turtleand.com" },
+      "url": "https://openclaw.turtleand.com"
+    })} />
 
     <!-- Theme initialization (prevent flash) -->
     <script is:inline>
