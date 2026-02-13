@@ -1,0 +1,247 @@
+---
+title: "Claude CLI Integration"
+module: "Module 0: Setup & Safety"
+subtopic: "claude-cli-integration"
+summary: "Run Claude CLI commands through OpenClaw and monitor your Anthropic usage limits."
+status: "done"
+---
+
+## Why integrate Claude CLI with OpenClaw?
+
+If you're using both Claude CLI (claude code) and OpenClaw, they share the same Anthropic API quota. Knowing your usage across both tools helps you:
+
+- Avoid hitting rate limits unexpectedly
+- Plan heavy work sessions around remaining quota
+- Monitor the 4-hour rolling window and weekly limits
+
+The challenge: Claude CLI is interactive. It needs a terminal (TTY) to run commands like `/usage`.
+
+The solution: Use `tmux` to automate the interaction and capture output.
+
+---
+
+## How it works
+
+```
+┌─────────────────────────────────────────────────────┐
+│  You ask OpenClaw: "check my Claude usage"          │
+└─────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│  OpenClaw runs a script that:                       │
+│  1. Starts Claude CLI in a tmux session             │
+│  2. Accepts workspace trust                         │
+│  3. Sends /usage command                            │
+│  4. Captures the output                             │
+│  5. Kills the session and returns stats             │
+└─────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│  OpenClaw sends you the formatted usage stats       │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## Prerequisites
+
+1. **Claude CLI installed:**
+   ```bash
+   curl -fsSL https://claude.ai/install.sh | bash
+   ```
+
+2. **tmux installed:**
+   ```bash
+   sudo apt install tmux
+   ```
+
+3. **Claude CLI authenticated** (first run completes OAuth flow)
+
+---
+
+## The script
+
+Create `~/.openclaw/scripts/claude-usage`:
+
+```bash
+#!/bin/bash
+# Get Claude CLI usage stats via tmux automation
+
+# Kill any existing session
+tmux kill-session -t claude_usage 2>/dev/null
+
+# Start claude in tmux (detached)
+tmux new-session -d -s claude_usage -c "$HOME/.openclaw/workspace" "$HOME/.local/bin/claude"
+sleep 2
+
+# Accept workspace trust prompt
+tmux send-keys -t claude_usage Enter
+sleep 2
+
+# Send /usage command
+tmux send-keys -t claude_usage "/usage" Enter
+sleep 2
+
+# Select Usage tab
+tmux send-keys -t claude_usage Enter
+sleep 2
+
+# Capture output
+OUTPUT=$(tmux capture-pane -t claude_usage -p | grep -A 20 "Current session" | head -20)
+
+# Cleanup
+tmux kill-session -t claude_usage 2>/dev/null
+
+# Display
+echo "📊 CLAUDE USAGE STATS"
+echo "━━━━━━━━━━━━━━━━━━━━━"
+echo "$OUTPUT"
+```
+
+Make it executable:
+```bash
+chmod +x ~/.openclaw/scripts/claude-usage
+```
+
+---
+
+## How the automation works
+
+### Step 1: Create a detached tmux session
+
+```bash
+tmux new-session -d -s claude_usage -c /path/to/workspace "claude"
+```
+
+- `-d` = detached (runs in background)
+- `-s claude_usage` = session name
+- `-c /path` = working directory
+- Last argument = command to run
+
+### Step 2: Send keystrokes
+
+```bash
+tmux send-keys -t claude_usage Enter
+```
+
+This simulates pressing Enter to accept the workspace trust prompt.
+
+### Step 3: Capture terminal output
+
+```bash
+tmux capture-pane -t claude_usage -p
+```
+
+- `capture-pane` = grabs visible terminal content
+- `-p` = print to stdout (instead of to a buffer)
+
+### Step 4: Clean up
+
+```bash
+tmux kill-session -t claude_usage
+```
+
+Always clean up to avoid orphaned sessions.
+
+---
+
+## Usage stats explained
+
+The `/usage` command in Claude CLI shows:
+
+| Metric | Description |
+|--------|-------------|
+| **Current session** | 4-hour rolling window (resets continuously) |
+| **Current week (all models)** | Weekly quota across Opus, Sonnet, Haiku |
+| **Current week (Sonnet only)** | Separate Sonnet-specific quota |
+| **Extra usage** | Optional paid overflow (if enabled) |
+
+Example output:
+```
+Current session
+████████████▌                                      25% used
+Resets 3am (UTC)
+
+Current week (all models)
+███████                                            14% used
+Resets Feb 15, 7pm (UTC)
+
+Current week (Sonnet only)
+██▌                                                5% used
+Resets Feb 16, 4am (UTC)
+```
+
+---
+
+## Integrating with your CLI
+
+If you have a personal CLI (like `turtleand`), add a command:
+
+```bash
+claude-usage|cu)
+    echo "Fetching Claude CLI usage stats..."
+    "$SCRIPTS_DIR/claude-usage"
+    ;;
+```
+
+Now you can run:
+```bash
+turtleand claude-usage
+# or
+turtleand cu
+```
+
+---
+
+## Asking OpenClaw to check usage
+
+Once the script exists, just tell your agent:
+
+> "Check my Claude usage"
+
+OpenClaw will run the script and return the stats.
+
+You can also set up a cron job to get usage reports at specific times:
+
+```json
+{
+  "name": "claude-usage-morning",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 9 * * *",
+    "tz": "America/Argentina/Buenos_Aires"
+  },
+  "payload": {
+    "kind": "systemEvent",
+    "text": "Run ~/.openclaw/scripts/claude-usage and send me the results."
+  },
+  "sessionTarget": "main"
+}
+```
+
+---
+
+## Key learnings
+
+1. **Interactive CLIs need TTY** — Use tmux to provide a pseudo-terminal
+2. **Timing matters** — Add `sleep` between commands for the UI to render
+3. **Capture strategically** — Use `grep` to extract relevant sections
+4. **Clean up always** — Kill tmux sessions to avoid resource leaks
+
+---
+
+## Next steps
+
+- Set up usage alerts when approaching quota limits
+- Create a dashboard combining OpenClaw + Claude CLI usage
+- Automate model switching based on remaining quota
+
+---
+
+## Resources
+
+- [Claude CLI Documentation](https://docs.anthropic.com/en/docs/claude-code)
+- [tmux Manual](https://man7.org/linux/man-pages/man1/tmux.1.html)
+- [OpenClaw Documentation](https://docs.openclaw.ai/automation/cron-jobs#cron-jobs)
