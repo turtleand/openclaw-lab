@@ -1,0 +1,182 @@
+---
+title: "Sub-Agents & Session Isolation"
+module: "Module 0: Setup & Safety"
+subtopic: "sub-agents-session-isolation"
+summary: "How sub-agents work, why they're isolated from your main session, and what happens when you change settings mid-flight."
+status: "done"
+articles: []
+---
+
+## The short answer
+
+If you change settings (like turning off thinking mode) in your main session, **sub-agents already running are not affected**. They keep working with whatever settings they had when they were spawned.
+
+This is because sub-agents run in **isolated sessions** — separate from your main conversation.
+
+---
+
+## What is a sub-agent?
+
+When your agent needs to do something that takes a while — research, code generation, file analysis — it can **spawn a sub-agent**. This is a separate session that runs in the background while your main conversation continues.
+
+Think of it as:
+
+> "Your agent hiring a contractor to do a specific job, while you keep talking."
+
+You can:
+- Keep chatting in your main session
+- Spawn multiple sub-agents in parallel
+- Get notified when each one finishes
+
+Example: Your agent spawns one sub-agent to analyze a codebase and another to research a topic. Both run simultaneously. You keep messaging about something else entirely.
+
+---
+
+## How sessions work in OpenClaw
+
+OpenClaw runs multiple session types:
+
+| Session type | Description | Example |
+|---|---|---|
+| **Main** | Your direct conversation | Telegram chat with your agent |
+| **Isolated (sub-agent)** | Background task, spawned by main | "Analyze this repo and create a PR" |
+| **Cron** | Triggered by schedule | "Every morning at 8am, compile a briefing" |
+
+Each session is **independent**:
+- Separate conversation history
+- Separate context window
+- Separate settings at spawn time
+- Separate token usage tracking
+
+This is the key insight: **sessions don't share state at runtime**.
+
+---
+
+## What happens when you change settings?
+
+Here's a concrete scenario:
+
+1. You're chatting with your agent with **thinking mode ON**
+2. Agent spawns two sub-agents (they inherit thinking mode ON)
+3. You turn thinking mode **OFF** in your main session
+4. The sub-agents **keep running with thinking mode ON**
+
+Why? Because the sub-agents were spawned as independent sessions. Changing your main session settings is like adjusting the thermostat in your office — it doesn't change the temperature in a contractor's office across town.
+
+### Settings that are locked at spawn time
+
+When a sub-agent is created, these are captured at that moment:
+- **Model** (e.g., Opus, Sonnet)
+- **Thinking mode** (on/off and level)
+- **System prompt** and workspace context
+- **Tool permissions**
+
+### Settings you can specify per sub-agent
+
+When spawning, your agent can explicitly override:
+- `model` — Use a different model than the main session
+- `thinking` — Set a specific thinking level
+
+```
+sessions_spawn(
+  task: "Analyze this codebase",
+  model: "sonnet",        // cheaper model for routine work
+  thinking: "high"         // but still with deep reasoning
+)
+```
+
+---
+
+## Why isolation matters
+
+### 1. Reliability
+If your main session crashes or gets compacted, sub-agents keep running. They're not dependent on the parent session's state.
+
+### 2. Parallel execution
+Multiple sub-agents can run simultaneously because they don't compete for the same context window. Your main session stays responsive.
+
+### 3. Cost control
+Sub-agents can use different models. Heavy analysis? Use Opus. Simple file operations? Use Sonnet. Each session tracks its own token usage.
+
+### 4. No cross-contamination
+A sub-agent working on a sensitive task doesn't leak context into your main conversation. When it finishes, only the summary is delivered back.
+
+---
+
+## The lifecycle of a sub-agent
+
+```
+Main Session                          Sub-Agent Session
+─────────────                         ──────────────────
+1. User asks for complex task
+2. Agent decides to spawn          →  3. New session created
+   sub-agent                           (inherits current settings)
+4. Agent continues chatting        →  5. Sub-agent works independently
+   with user                           (reads files, runs commands,
+                                        searches web, etc.)
+6. User changes settings
+   (e.g., thinking OFF)               7. Sub-agent unaffected
+                                        (still using original settings)
+8. Agent receives notification  ←  9. Sub-agent completes
+   with results summary                (session can be kept or deleted)
+10. Agent shares results
+    with user
+```
+
+---
+
+## Practical implications
+
+### You can keep chatting
+Sub-agents don't block your main session. Spawn a 10-minute research task and keep discussing something else.
+
+### Settings changes are safe
+Turning off thinking mode, switching models, or changing any configuration in your main session won't interrupt background work. This is by design.
+
+### Sub-agents can't message you directly
+They report back to the main session, which then relays the results to you. You won't get a random Telegram message from a sub-agent — your main agent is always the intermediary.
+
+### Token usage is separate
+Each sub-agent has its own token counter. When it finishes, you can see exactly how many tokens it used. This matters for quota management.
+
+---
+
+## When to use sub-agents vs. doing it inline
+
+**Use sub-agents when:**
+- The task takes more than ~30 seconds
+- You want to keep chatting while it works
+- You need parallel execution (multiple tasks at once)
+- The task benefits from a fresh context window (no conversation clutter)
+- You want to use a different model for the task
+
+**Do it inline when:**
+- Quick operations (reading a file, simple search)
+- You need the result immediately to continue the conversation
+- The task requires back-and-forth with you
+
+---
+
+## Cron jobs: another form of isolation
+
+Cron jobs that use `sessionTarget: "isolated"` work the same way. When a cron job fires, it creates a fresh isolated session with whatever model and settings are specified in the job configuration — not whatever your main session is currently using.
+
+This means:
+- Your overnight briefing job keeps running even if you changed your main session to Sonnet
+- A cron job set to use `thinking: "high"` will always use it, regardless of your current toggle
+- Each cron run is independent of previous runs (fresh context)
+
+---
+
+## Summary
+
+| Question | Answer |
+|---|---|
+| Do sub-agents share my main session? | No — fully isolated |
+| If I change settings, are sub-agents affected? | No — they use settings from spawn time |
+| Can I spawn multiple sub-agents? | Yes — they run in parallel |
+| Do sub-agents use my token quota? | Yes — but tracked separately per session |
+| Can I specify different models per sub-agent? | Yes — via `model` parameter |
+| Do cron jobs work the same way? | Yes — isolated cron jobs are independent sessions |
+
+The core principle: **sessions are isolated by design**. This gives you reliability, parallelism, and the freedom to change settings without worrying about breaking background work.
