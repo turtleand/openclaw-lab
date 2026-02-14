@@ -7,6 +7,7 @@
 - [Cron Jobs & Scheduled Automation](https://openclaw.turtleand.com/topics/cron-jobs-automation): Schedule recurring tasks, reminders, and automated check-ins with OpenClaw's built-in cron system.
 - [Delegating Development to Your Agent](https://openclaw.turtleand.com/topics/git-autonomous-development): Configure Git access so OpenClaw can develop on your behalf while you're away.
 - [Persistent AI agents](https://openclaw.turtleand.com/topics/persistent-agents): Deploy an always-on AI agent on a cloud server with messaging and security.
+- [Quota Optimization: Never Waste a Token](https://openclaw.turtleand.com/topics/quota-optimization): Build an automated system that monitors your AI quota usage, nags you when you're falling behind, and auto-scales models to extract maximum value from your subscription.
 - [Sub-Agents & Session Isolation](https://openclaw.turtleand.com/topics/sub-agents-and-session-isolation): How sub-agents work, why they're isolated from your main session, and what happens when you change settings mid-flight.
 - [Voice notes with Telegram](https://openclaw.turtleand.com/topics/voice-notes-telegram): Send voice messages to your AI agent and have them transcribed and executed.
 

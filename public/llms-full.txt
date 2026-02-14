@@ -952,6 +952,282 @@ Works well for:
 
 ---
 
+# Quota Optimization: Never Waste a Token
+
+## The problem: use it or lose it
+
+Most AI subscriptions reset weekly. If you don't use your full quota before it resets, that capacity is gone forever. You paid for it, you just didn't extract its value.
+
+This is especially true for plans like Claude Max, where you get a weekly allocation of compute across different model tiers (Opus, Sonnet, Haiku). If you reach Friday with 60% of your quota untouched, you essentially left money on the table.
+
+The opposite problem exists too — burn through your quota by Wednesday and you're stuck waiting for the reset.
+
+The goal: **smooth, consistent consumption that maximizes the value you extract from every token**.
+
+Think of it as:
+
+> "A thermostat for your AI usage — it adjusts automatically so you never waste capacity and never run dry."
+
+---
+
+## The strategy
+
+The core idea is simple:
+
+1. **Daily target** = 1/7 of your weekly quota (~14.3% per day)
+2. **Monitor** actual vs. expected usage twice per day
+3. **Auto-adjust** model selection on cron jobs to speed up or slow down consumption
+4. **Nag** you when you're falling behind, so you can use the compute productively
+5. **Panic** near the end of the week if significant quota remains unused
+
+### The math
+
+If your weekly quota resets every 7 days:
+
+```
+hoursElapsed    = 168 - hoursUntilReset
+expectedUsage%  = (hoursElapsed / 168) × 100
+delta           = actualUsage% - expectedUsage%
+dailyEquivalent = delta / 14.3
+```
+
+A `dailyEquivalent` of `-1.5` means you're 1.5 days behind schedule. A value of `+0.8` means you're slightly ahead but within tolerance.
+
+---
+
+## The thresholds
+
+| Status | Condition | Action |
+|---|---|---|
+| ✅ On pace | Within ±1 day of target | Log silently. No action needed. |
+| 🔴 Behind | 1+ days behind target | Nag. Recommend high-value Opus tasks. |
+| 🔴 Critical | 2+ days behind target | Auto-upscale: switch Sonnet crons → Opus. |
+| 🟡 Ahead | 1+ days ahead of target | Alert. Downscale Opus crons → Sonnet. |
+| 🚨 Panic | Less than 24h until reset AND more than 30% unused | Spawn productive Opus research tasks. |
+
+The ±1 day buffer prevents unnecessary noise. You don't need an alert every time you're 2% off. But if you're a full day behind, the system should act.
+
+---
+
+## Implementation with OpenClaw
+
+### Step 1: Track your usage
+
+Claude Max exposes usage through the CLI's `/usage` command. Since this requires an interactive terminal, we use a tmux session to capture it:
+
+```bash
+# Create tmux session, launch Claude CLI
+SOCKET="/tmp/openclaw-tmux-sockets/openclaw.sock"
+mkdir -p /tmp/openclaw-tmux-sockets
+tmux -S "$SOCKET" new -d -s quota_check -n shell
+tmux -S "$SOCKET" send-keys -t quota_check:0.0 \
+  -l -- 'claude --dangerously-skip-permissions'
+sleep 0.1
+tmux -S "$SOCKET" send-keys -t quota_check:0.0 Enter
+sleep 8
+
+# Select effort level (press Enter to accept default)
+tmux -S "$SOCKET" send-keys -t quota_check:0.0 Enter
+sleep 3
+
+# Run /usage
+tmux -S "$SOCKET" send-keys -t quota_check:0.0 -l -- '/usage'
+sleep 0.1
+tmux -S "$SOCKET" send-keys -t quota_check:0.0 Enter
+sleep 4
+
+# Capture the output
+tmux -S "$SOCKET" capture-pane -p -J -t quota_check:0.0 -S -30
+```
+
+The output includes percentage bars for session, weekly (all models), and weekly (Sonnet only), plus the reset timestamps.
+
+After capturing, clean up:
+
+```bash
+tmux -S "$SOCKET" send-keys -t quota_check:0.0 Escape
+sleep 1
+tmux -S "$SOCKET" send-keys -t quota_check:0.0 -l -- '/exit'
+sleep 0.1
+tmux -S "$SOCKET" send-keys -t quota_check:0.0 Enter
+sleep 2
+tmux -S "$SOCKET" kill-session -t quota_check 2>/dev/null
+```
+
+### Step 2: Create the optimizer cron job
+
+Set up a cron job that runs twice daily — once in the morning, once in the evening:
+
+```json
+{
+  "name": "Quota Optimizer — Morning Check",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 12 * * *",
+    "tz": "UTC"
+  },
+  "sessionTarget": "isolated",
+  "payload": {
+    "kind": "agentTurn",
+    "model": "sonnet",
+    "message": "Check Claude Max /usage via tmux. Calculate pace. Take action if needed."
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "<your-telegram-id>"
+  }
+}
+```
+
+The optimizer cron itself runs on Sonnet — it's a monitoring job, not a heavy-compute task. No point spending Opus tokens to check if you should be spending Opus tokens.
+
+### Step 3: Define the auto-scaling logic
+
+The optimizer's decision tree:
+
+```
+IF delta < -28.6 (2+ days behind):
+  → Auto-upscale ALL Sonnet crons to Opus
+  → Nag user with specific productive task suggestions
+
+ELSE IF delta < -14.3 (1+ day behind):
+  → Nag user
+  → Recommend upscaling specific crons
+  → Suggest high-value research/analysis tasks
+
+ELSE IF delta > +14.3 (1+ day ahead):
+  → Alert user
+  → Downscale any auto-upscaled Opus crons back to Sonnet
+
+ELSE IF hoursUntilReset < 24 AND weeklyUsed < 70%:
+  → PANIC: spawn productive Opus sub-agents
+  → Research reports, content drafts, strategic analysis
+
+ELSE:
+  → On pace. Log and stay silent.
+```
+
+### Step 4: Track state
+
+Keep a JSON file to log each check and track adjustments:
+
+```json
+{
+  "description": "Claude Max weekly quota optimization tracker",
+  "thresholds": {
+    "behindTrigger": "-14.3% (1 day behind)",
+    "aheadTrigger": "+14.3% (1 day ahead)",
+    "criticalBehind": "-28.6% (2+ days behind)",
+    "endOfWeekPanic": "<24h until reset AND >30% unused"
+  },
+  "lastCheck": "2026-02-14T12:00:00Z",
+  "history": [
+    {
+      "timestamp": "2026-02-14T12:00:00Z",
+      "weeklyUsed": 32,
+      "expected": 28.6,
+      "delta": 3.4,
+      "action": "on_pace"
+    }
+  ]
+}
+```
+
+This gives you an audit trail. You can review patterns: are you consistently behind on certain days? Are weekends underutilized? The data tells the story.
+
+---
+
+## The auto-scaling levers
+
+The primary mechanism is **switching model tiers on cron jobs**. Most agents run multiple scheduled tasks — overnight processing, morning briefings, work check-ins, content checks. Each one has a `model` field that can be changed without modifying the task logic.
+
+| Lever | When to pull | Effect |
+|---|---|---|
+| Sonnet → Opus on overnight jobs | Falling behind | Higher quality output + faster quota consumption |
+| Opus → Sonnet on overnight jobs | Getting ahead | Conserve quota while maintaining functionality |
+| Spawn Opus sub-agents | End-of-week panic | Productive use of remaining quota (research, drafts) |
+| Pause non-essential crons | Way ahead of pace | Reduce consumption without losing critical functions |
+
+The key principle: **auto-scaling should always produce value**. Never burn tokens on meaningless tasks. If the system needs to increase consumption, it should do useful work — research reports, content drafts, strategic analysis, deep code reviews.
+
+---
+
+## What "productive burn" looks like
+
+When the optimizer detects you're behind and needs to upscale, it should suggest tasks that compound:
+
+- **Research reports** — Deep analysis of a topic you care about, uploaded to your reference library
+- **Content drafts** — First drafts of articles you've been meaning to write
+- **Strategic analysis** — Evaluate a market, technology, or career decision with depth
+- **Learning guides** — Comprehensive guides on tools or frameworks you want to learn
+- **Code reviews** — Deep analysis of a codebase or architecture
+
+These aren't busywork. Each one either saves you future time, builds your knowledge base, or creates content you can publish. The quota gets used, and you get tangible output.
+
+---
+
+## Why the nagging matters
+
+Auto-scaling handles the supply side (what models your crons use). But the demand side — your actual conversations and tasks — is where most quota gets consumed. If you're not asking your agent to do things, no amount of cron upscaling will close a 3-day gap.
+
+The nag protocol exists to prompt **you** to use the compute:
+
+- 1 day behind: Gentle reminder with suggestions
+- 2 days behind: More insistent, with specific task list
+- End-of-week: Urgent, with auto-spawned research tasks
+
+The tone escalates, but the suggestions stay productive. It's not "use more AI for the sake of it" — it's "here are high-value things your AI could be doing right now that you haven't asked for."
+
+---
+
+## Edge cases
+
+### What if I genuinely don't need the compute this week?
+
+That's fine — the system nags, it doesn't force. You can ignore the alerts. But consider: if you consistently don't need the compute, you might be on the wrong plan. The optimizer surfaces that signal.
+
+### What about session limits?
+
+Claude Max has both weekly and per-session quotas. The session quota resets every ~5 hours. The optimizer focuses on the weekly quota since that's the one with real consequences (weekly reset = lost capacity). Session limits are self-correcting — just wait a few hours.
+
+### What if the weekly reset day shifts?
+
+The optimizer reads the reset time directly from `/usage` output each check. It doesn't assume a fixed reset day. If Anthropic changes the cycle, the system adapts automatically.
+
+### What about Sonnet-specific quota?
+
+Claude Max tracks Sonnet usage separately. The optimizer watches both. If your all-models quota is on pace but Sonnet is underutilized, it might specifically recommend Sonnet tasks to balance consumption.
+
+---
+
+## The bigger picture
+
+This isn't just about squeezing value from a subscription. It's about building the habit of **using AI as infrastructure** rather than as an occasional tool.
+
+When your quota optimizer nudges you to use more compute, it's really asking: "What problems could your AI be solving right now that you haven't thought to delegate?"
+
+Over time, this builds the reflex to offload more work to your agent — research, analysis, drafting, monitoring. The quota becomes a forcing function for delegation, which is a skill that compounds far beyond AI usage.
+
+> "The goal isn't to use 100% of your quota. It's to make 100% of your quota do useful work."
+
+---
+
+## Summary
+
+| Component | Purpose |
+|---|---|
+| Daily target (14.3%) | Smooth consumption curve |
+| Morning + evening checks | Detect drift early |
+| Auto-scaling (Sonnet ↔ Opus) | Adjust consumption without manual intervention |
+| Nagging protocol | Prompt productive usage from the human side |
+| End-of-week panic mode | Last chance to extract value |
+| State tracking (JSON) | Audit trail + pattern recognition |
+
+The system runs on two Sonnet cron jobs that cost almost nothing. The value it unlocks — consistent, productive use of your full AI budget — compounds weekly.
+
+---
+
 # Sub-Agents & Session Isolation
 
 ## The short answer
