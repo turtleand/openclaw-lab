@@ -25,6 +25,14 @@ const status = getStatusBadge(topic.data.status);
 ---
 
 <BaseLayout title={topic.data.title} description={topic.data.summary}>
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    "headline": topic.data.title,
+    "description": topic.data.summary,
+    "author": { "@type": "Person", "name": "Turtleand", "url": "https://turtleand.com" },
+    "url": `https://openclaw.turtleand.com/topics/${topic.slug}`
+  })} />
   <article class="py-12">
     <div class="container">
       <!-- Back link -->

@@ -1,0 +1,1496 @@
+# Turtleand OpenClaw Lab — Full Content
+
+---
+
+# Claude CLI Integration
+
+## Why integrate Claude CLI with OpenClaw?
+
+If you're using both Claude CLI (claude code) and OpenClaw, they share the same Anthropic API quota. Knowing your usage across both tools helps you:
+
+- Avoid hitting rate limits unexpectedly
+- Plan heavy work sessions around remaining quota
+- Monitor the 4-hour rolling window and weekly limits
+
+The challenge: Claude CLI is interactive. It needs a terminal (TTY) to run commands like `/usage`.
+
+The solution: Use `tmux` to automate the interaction and capture output.
+
+---
+
+## How it works
+
+```
+┌─────────────────────────────────────────────────────┐
+│  You ask OpenClaw: "check my Claude usage"          │
+└─────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│  OpenClaw runs a script that:                       │
+│  1. Starts Claude CLI in a tmux session             │
+│  2. Accepts workspace trust                         │
+│  3. Sends /usage command                            │
+│  4. Captures the output                             │
+│  5. Kills the session and returns stats             │
+└─────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│  OpenClaw sends you the formatted usage stats       │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## Prerequisites
+
+1. **Claude CLI installed:**
+   ```bash
+   curl -fsSL https://claude.ai/install.sh | bash
+   ```
+
+2. **tmux installed:**
+   ```bash
+   sudo apt install tmux
+   ```
+
+3. **Claude CLI authenticated** (first run completes OAuth flow)
+
+---
+
+## The script
+
+Create `~/.openclaw/scripts/claude-usage`:
+
+```bash
+#!/bin/bash
+# Get Claude CLI usage stats via tmux automation
+
+# Kill any existing session
+tmux kill-session -t claude_usage 2>/dev/null
+
+# Start claude in tmux (detached)
+tmux new-session -d -s claude_usage -c "$HOME/.openclaw/workspace" "$HOME/.local/bin/claude"
+sleep 2
+
+# Accept workspace trust prompt
+tmux send-keys -t claude_usage Enter
+sleep 2
+
+# Send /usage command
+tmux send-keys -t claude_usage "/usage" Enter
+sleep 2
+
+# Select Usage tab
+tmux send-keys -t claude_usage Enter
+sleep 2
+
+# Capture output
+OUTPUT=$(tmux capture-pane -t claude_usage -p | grep -A 20 "Current session" | head -20)
+
+# Cleanup
+tmux kill-session -t claude_usage 2>/dev/null
+
+# Display
+echo "📊 CLAUDE USAGE STATS"
+echo "━━━━━━━━━━━━━━━━━━━━━"
+echo "$OUTPUT"
+```
+
+Make it executable:
+```bash
+chmod +x ~/.openclaw/scripts/claude-usage
+```
+
+---
+
+## How the automation works
+
+### Step 1: Create a detached tmux session
+
+```bash
+tmux new-session -d -s claude_usage -c /path/to/workspace "claude"
+```
+
+- `-d` = detached (runs in background)
+- `-s claude_usage` = session name
+- `-c /path` = working directory
+- Last argument = command to run
+
+### Step 2: Send keystrokes
+
+```bash
+tmux send-keys -t claude_usage Enter
+```
+
+This simulates pressing Enter to accept the workspace trust prompt.
+
+### Step 3: Capture terminal output
+
+```bash
+tmux capture-pane -t claude_usage -p
+```
+
+- `capture-pane` = grabs visible terminal content
+- `-p` = print to stdout (instead of to a buffer)
+
+### Step 4: Clean up
+
+```bash
+tmux kill-session -t claude_usage
+```
+
+Always clean up to avoid orphaned sessions.
+
+---
+
+## Usage stats explained
+
+The `/usage` command in Claude CLI shows:
+
+| Metric | Description |
+|--------|-------------|
+| **Current session** | 4-hour rolling window (resets continuously) |
+| **Current week (all models)** | Weekly quota across Opus, Sonnet, Haiku |
+| **Current week (Sonnet only)** | Separate Sonnet-specific quota |
+| **Extra usage** | Optional paid overflow (if enabled) |
+
+Example output:
+```
+Current session
+████████████▌                                      25% used
+Resets 3am (UTC)
+
+Current week (all models)
+███████                                            14% used
+Resets Feb 15, 7pm (UTC)
+
+Current week (Sonnet only)
+██▌                                                5% used
+Resets Feb 16, 4am (UTC)
+```
+
+---
+
+## Integrating with your CLI
+
+If you have a personal CLI (like `turtleand`), add a command:
+
+```bash
+claude-usage|cu)
+    echo "Fetching Claude CLI usage stats..."
+    "$SCRIPTS_DIR/claude-usage"
+    ;;
+```
+
+Now you can run:
+```bash
+turtleand claude-usage
+# or
+turtleand cu
+```
+
+---
+
+## Asking OpenClaw to check usage
+
+Once the script exists, just tell your agent:
+
+> "Check my Claude usage"
+
+OpenClaw will run the script and return the stats.
+
+You can also set up a cron job to get usage reports at specific times:
+
+```json
+{
+  "name": "claude-usage-morning",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 9 * * *",
+    "tz": "America/Argentina/Buenos_Aires"
+  },
+  "payload": {
+    "kind": "systemEvent",
+    "text": "Run ~/.openclaw/scripts/claude-usage and send me the results."
+  },
+  "sessionTarget": "main"
+}
+```
+
+---
+
+## Key learnings
+
+1. **Interactive CLIs need TTY** — Use tmux to provide a pseudo-terminal
+2. **Timing matters** — Add `sleep` between commands for the UI to render
+3. **Capture strategically** — Use `grep` to extract relevant sections
+4. **Clean up always** — Kill tmux sessions to avoid resource leaks
+
+---
+
+## Next steps
+
+- Set up usage alerts when approaching quota limits
+- Create a dashboard combining OpenClaw + Claude CLI usage
+- Automate model switching based on remaining quota
+
+---
+
+## Resources
+
+- [Claude CLI Documentation](https://docs.anthropic.com/en/docs/claude-code)
+- [tmux Manual](https://man7.org/linux/man-pages/man1/tmux.1.html)
+- [OpenClaw Documentation](https://docs.openclaw.ai/automation/cron-jobs#cron-jobs)
+
+---
+
+# Cron Jobs & Scheduled Automation
+
+## What are cron jobs in OpenClaw?
+
+OpenClaw includes a built-in cron scheduler that lets your agent run tasks automatically — without you sending a message.
+
+Use cases:
+- **Morning briefings** — Agent compiles overnight insights and delivers them when you wake up
+- **Accountability nudges** — Reminders that escalate if you don't complete a goal
+- **Daily backups** — Automatic state sync to cloud storage
+- **Work check-ins** — Structured prompts at key moments in your day
+- **Security audits** — Daily reports on system health
+
+Think of it as:
+
+> "Your agent doing things on a schedule, not just when you ask."
+
+---
+
+## How cron jobs work
+
+Cron jobs in OpenClaw are managed internally by the Gateway — not as files on disk.
+
+**Key concepts:**
+- Jobs are created/modified via tool calls (`cron action=add/update/remove`)
+- Each job has a schedule (cron expression or one-time timestamp)
+- Jobs can target the main session or spawn isolated sessions
+- Jobs can deliver messages directly to Telegram/Discord/etc.
+
+---
+
+## Schedule types
+
+### Recurring (cron expression)
+
+```json
+{
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 9 * * 1-5",
+    "tz": "America/Argentina/Buenos_Aires"
+  }
+}
+```
+
+This runs at 09:00 Monday-Friday in the specified timezone.
+
+**Cron expression format:** `minute hour day-of-month month day-of-week`
+
+Common patterns:
+- `0 9 * * *` — Daily at 09:00
+- `0 9 * * 1-5` — Weekdays at 09:00
+- `0 */2 * * *` — Every 2 hours
+- `30 18 * * 5` — Fridays at 18:30
+
+### One-time (at timestamp)
+
+```json
+{
+  "schedule": {
+    "kind": "at",
+    "at": "2026-02-09T22:00:00Z"
+  }
+}
+```
+
+Runs once at the specified ISO 8601 timestamp. Useful for reminders. One-shot jobs auto-delete after success by default.
+
+---
+
+## Payload types
+
+### systemEvent (main session)
+
+Injects a message into the main session as if it were a system event:
+
+```json
+{
+  "sessionTarget": "main",
+  "payload": {
+    "kind": "systemEvent",
+    "text": "REMINDER: Check your GitHub commits for today."
+  }
+}
+```
+
+The agent wakes up, sees the message, and responds in context.
+
+### agentTurn (isolated session)
+
+Spawns a fresh session with its own context:
+
+```json
+{
+  "sessionTarget": "isolated",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Run the morning briefing compilation task.",
+    "model": "sonnet",
+    "deliver": true,
+    "channel": "telegram",
+    "to": "123456789"
+  }
+}
+```
+
+Good for:
+- Long-running tasks that shouldn't clutter main session
+- Different model/thinking settings
+- Direct delivery to a channel
+
+---
+
+## Real examples
+
+### Morning briefing delivery
+
+```json
+{
+  "name": "Morning Briefing Delivery",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 11 * * *",
+    "tz": "UTC"
+  },
+  "sessionTarget": "isolated",
+  "wakeMode": "next-heartbeat",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Read the latest overnight briefing file and deliver it to Turtleand.",
+    "model": "sonnet"
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "5586308961"
+  }
+}
+```
+
+### Accountability check with escalation
+
+```json
+{
+  "name": "content-goal-daily-check",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 9 * * 1-5",
+    "tz": "America/Argentina/Buenos_Aires"
+  },
+  "sessionTarget": "main",
+  "payload": {
+    "kind": "systemEvent",
+    "text": "CONTENT GOAL CHECK: Read memory/CONTENT-STATS.md. If weekly goals not met, calculate days behind and send reminders. Formula: 2^(daysBehind-1) notifications spread throughout the day."
+  }
+}
+```
+
+### One-time reminder
+
+```json
+{
+  "name": "x-followup-reminder",
+  "schedule": {
+    "kind": "at",
+    "at": "2026-02-09T22:00:00Z"
+  },
+  "sessionTarget": "main",
+  "wakeMode": "now",
+  "payload": {
+    "kind": "systemEvent",
+    "text": "REMINDER: Follow up on your X post with the blog link."
+  },
+  "deleteAfterRun": true
+}
+```
+
+### Daily backup
+
+```json
+{
+  "name": "daily-backup",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 23 * * *",
+    "tz": "UTC"
+  },
+  "sessionTarget": "isolated",
+  "wakeMode": "next-heartbeat",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Run ~/.openclaw/scripts/backup-state auto and report results."
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "5586308961"
+  }
+}
+```
+
+---
+
+## Managing cron jobs (CLI)
+
+### List all jobs
+
+```bash
+openclaw cron list
+```
+
+### Add a one-shot reminder (main session)
+
+```bash
+openclaw cron add \
+  --name "Reminder" \
+  --at "2026-02-01T16:00:00Z" \
+  --session main \
+  --system-event "Reminder: check your goals for the week." \
+  --wake now \
+  --delete-after-run
+```
+
+### Add a recurring job (isolated session with delivery)
+
+```bash
+openclaw cron add \
+  --name "Morning brief" \
+  --cron "0 7 * * *" \
+  --tz "America/Los_Angeles" \
+  --session isolated \
+  --message "Summarize overnight updates." \
+  --announce \
+  --channel telegram \
+  --to "5586308961"
+```
+
+### Run a job manually
+
+```bash
+openclaw cron run <job-id>
+```
+
+### View run history
+
+```bash
+openclaw cron runs --id <job-id>
+```
+
+### Remove a job
+
+```bash
+openclaw cron remove <job-id>
+```
+
+## JSON schema (for tool calls)
+
+If calling the cron tool directly from an agent:
+
+### One-shot main session job
+
+```json
+{
+  "name": "Reminder",
+  "schedule": { "kind": "at", "at": "2026-02-01T16:00:00Z" },
+  "sessionTarget": "main",
+  "wakeMode": "now",
+  "payload": { "kind": "systemEvent", "text": "Reminder text" },
+  "deleteAfterRun": true
+}
+```
+
+### Recurring isolated job with delivery
+
+```json
+{
+  "name": "Morning brief",
+  "schedule": { "kind": "cron", "expr": "0 7 * * *", "tz": "America/Los_Angeles" },
+  "sessionTarget": "isolated",
+  "wakeMode": "next-heartbeat",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Summarize overnight updates."
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "5586308961"
+  }
+}
+```
+
+---
+
+## Escalating accountability pattern
+
+A powerful pattern: reminders that increase in frequency the longer you avoid a goal.
+
+**Logic:**
+```python
+notifications_today = 2 ** (days_behind - 1)
+# Day 1: 1 notification
+# Day 2: 2 notifications
+# Day 3: 4 notifications
+# Day 4: 8 notifications
+```
+
+**Implementation:**
+1. Daily check job assesses goal completion
+2. If behind, spawns one-shot jobs for later notification slots
+3. Notifications spread across the day (harder to ignore)
+4. When goal is met, counter resets
+
+**Notification slots:**
+```
+["09:00", "11:00", "13:00", "15:00", "17:00", "19:00", "21:00", "22:30"]
+
+Day 1 = slot 0 only
+Day 2 = slots 0, 4
+Day 3 = slots 0, 2, 4, 6
+Day 4 = all 8 slots
+```
+
+This creates natural consequences for procrastination — configured by you, enforced by the agent.
+
+---
+
+## Best practices
+
+1. **Use timezone** — Always specify `tz` to avoid UTC confusion
+2. **Isolated for heavy tasks** — Long-running jobs shouldn't block main session
+3. **Deliver directly** — Use `deliver: true` for notifications that need immediate attention
+4. **One-shot for reminders** — Use `kind: "at"` for single-fire events
+5. **Name your jobs** — Descriptive names make management easier
+
+---
+
+## What's possible
+
+With cron jobs, your agent becomes proactive — not just reactive.
+
+Examples from a real setup:
+- 4-stage overnight briefing pipeline (04:00-07:00 UTC)
+- 6 daily work check-ins with strategy prompts
+- Weekly pattern analysis every Friday
+- Automatic backups at 23:00 UTC
+- Content goal tracking with escalating nudges
+
+The agent works while you sleep, and delivers results when you wake up.
+
+---
+
+## Further reading
+
+- [AI Agents as Accountability Partners](https://blog.turtleand.com/posts/ai-agents-accountability-partners/) — The accountability pattern in depth
+- [Persistent Agents](/topics/persistent-agents/) — Setting up your always-on agent
+- [OpenClaw Documentation](https://docs.openclaw.ai/automation/cron-jobs#cron-jobs) — Full cron API reference
+
+---
+
+# Delegating Development to Your Agent
+
+## Why Delegate?
+
+Developer time is limited, so use the agent for routine implementation work.
+
+With Git access, the agent can prepare feature branches, fix scoped bugs, and scaffold components while you are doing other tasks. It can also run checks and open a draft PR with a summary of changes.
+
+You still control the final decision: review the diff, request edits, and merge only what meets your standards.
+
+---
+
+## Two Approaches
+
+### Read-Only (Conservative)
+
+Agent analyzes but doesn't touch code:
+- Uses `gh` CLI for read operations
+- Reviews PRs, monitors CI, summarizes issues
+- Sends insights via Telegram—you act on GitHub
+
+**Best for:** Sensitive repos, building trust.
+
+### Branch-Based Write (Recommended)
+
+Agent pushes code to branches, never to main:
+- Has SSH key with push access
+- Creates commits, opens PRs
+- You review and merge
+
+**Best for:** Personal projects, true autonomy.
+
+---
+
+## Simple Setup (5 minutes)
+
+The following setup is intentionally minimal and works well for a solo repo. As reliability needs increase, move to stronger permission models: use a dedicated bot account, or place repos in a GitHub organization and grant the bot least-privilege access. That gives you cleaner separation, better auditability, and safer scaling when collaborators are added.
+
+**1. Generate SSH key:**
+```bash
+ssh-keygen -t ed25519 -C "openclaw-bot@yourdomain.com"
+```
+
+**2. Add to GitHub:**
+```bash
+cat ~/.ssh/id_ed25519.pub
+# Copy → GitHub → Settings → SSH Keys → New
+```
+
+**3. Clone and configure:**
+```bash
+cd ~/projects/your-repo
+git config user.name "OpenClaw Bot"
+git config user.email "openclaw-bot@yourdomain.com"
+```
+
+**4. Add to SOUL.md:**
+```markdown
+## Git Workflow
+- Always work on branches — never push to main
+- Human merges — I create PRs, you decide
+```
+
+---
+
+## Protection Layer
+
+Even if the agent misbehaves, GitHub should block it.
+
+**Enable branch protection on main:**
+- ☑️ Require pull request before merging
+- ☑️ Require approvals
+- ☑️ Block force pushes
+
+Your agent can push branches. It cannot touch main.
+
+---
+
+## The Workflow
+
+**You say:** "Add dark mode to settings. Create a PR."
+
+**Agent does:**
+1. Creates `feature/dark-mode`
+2. Implements changes
+3. Commits and pushes
+4. Sends you the PR link
+
+**You do:** Review on your phone. Merge when ready.
+
+---
+
+## Key Takeaways
+
+- **SSH keys in `~/.ssh/`** — never in code
+- **Branch protection always on** — defense in depth
+- **SOUL.md defines constraints** — agent follows your rules
+- **Start conservative** — trust compounds
+
+Productivity increases while you're idle.
+
+---
+
+# Persistent AI agents
+
+## What is a persistent AI agent?
+
+Instead of opening a chat window when you need help, a persistent agent runs 24/7 on a server. You can message it from your phone and get responses anytime.
+
+[OpenClaw](https://openclaw.ai/) is an open-source framework for this. It lets you:
+
+- Receive messages via Telegram, Signal, or Discord
+- Execute commands and manage files on a server
+- Run scheduled tasks automatically
+- Remember context across conversations
+
+Think of it as:
+
+> "An AI assistant living on a server, available whenever you need it."
+
+---
+
+## Important: Terms of Service
+
+Before setting this up, be aware of potential issues:
+
+- **API usage rules** — Some AI providers may restrict automated or persistent usage of their APIs. There are [reports of Anthropic banning users](https://blogs.cisco.com/ai/personal-ai-agents-like-openclaw-are-a-security-nightmare) running OpenClaw with Claude credentials.
+
+- **Security risks** — Running an AI with shell access on a server is powerful but risky. [Security researchers warn](https://www.darkreading.com/application-security/openclaw-ai-runs-wild-business-environments) about supply chain risks from third-party modules.
+
+**Recommendation:** Read the terms of service for your AI provider. Consider running in an isolated sandbox. Don't connect to production systems.
+
+---
+
+## Why run a persistent agent
+
+A persistent agent changes the interaction from "I open a chat" to "I message my assistant."
+
+**Benefits:**
+- **Always available** — Message from your phone, get a response
+- **Proactive capabilities** — Schedule tasks, run checks, send reminders
+- **Shared context** — Memory persists across sessions
+- **Integration surface** — One agent connecting calendar, files, APIs
+
+**Good for:**
+- AI assistant accessible from anywhere
+- Recurring tasks that benefit from automation
+- Experimenting with agent capabilities
+- Owning your infrastructure
+
+**Not ideal if:**
+- You only need occasional interactions
+- You don't want to manage a server
+- Claude.ai or Claude Code already covers your needs
+
+---
+
+## Requirements
+
+Before starting:
+
+- **Cloud server** — EC2, DigitalOcean, or any Linux VPS (1 vCPU, 1 GB RAM minimum)
+- **SSH access** — Key-based authentication configured
+- **Node.js 18+** — OpenClaw runs on Node
+- **API key** — Anthropic, OpenAI, or other provider
+- **Messaging account** — Telegram bot token, Signal number, or Discord bot
+
+---
+
+## Setup walkthrough
+
+This documents setup on an AWS EC2 instance with Telegram.
+
+### 1. Install OpenClaw
+
+```bash
+# Install Node.js if needed
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install OpenClaw globally
+sudo npm install -g openclaw
+```
+
+### 2. Run the setup wizard
+
+```bash
+openclaw doctor
+```
+
+The wizard configures:
+- API key
+- Model selection (Opus, Sonnet, Haiku)
+- Workspace directory
+- Messaging channels
+
+### 3. Configure Telegram
+
+Create a bot via [@BotFather](https://t.me/botfather):
+
+1. Send `/newbot` and follow the prompts
+2. Copy the bot token
+3. Add to OpenClaw config when prompted
+
+Approve your user with:
+
+```bash
+openclaw pairing approve telegram <CODE>
+```
+
+### 4. Run as a service
+
+```bash
+# Install systemd service
+openclaw gateway install
+
+# Start the service
+openclaw gateway start
+
+# Check status
+openclaw status
+```
+
+The agent now runs persistently and survives reboots.
+
+---
+
+## Security hardening
+
+A server running an AI with shell access requires careful security.
+
+### Firewall
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow ssh
+sudo ufw enable
+```
+
+### Fail2ban (SSH protection)
+
+```bash
+sudo apt install fail2ban
+
+sudo tee /etc/fail2ban/jail.local << 'EOF'
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 3600
+findtime = 600
+EOF
+
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
+```
+
+After 3 failed SSH attempts in 10 minutes, the IP is banned for 1 hour.
+
+### File permissions
+
+```bash
+chmod 700 ~/.openclaw
+chmod 600 ~/.openclaw/openclaw.json
+```
+
+Config files contain API keys. Restrict access.
+
+### User allowlist
+
+OpenClaw uses pairing mode — unknown users can't interact without approval. Approved users are stored in:
+
+```
+~/.openclaw/credentials/telegram-allowFrom.json
+```
+
+---
+
+## Memory and context
+
+OpenClaw maintains workspace files that persist:
+
+```
+~/.openclaw/workspace/
+├── AGENTS.md      # Agent behavior guidelines
+├── SOUL.md        # Personality and boundaries
+├── USER.md        # Info about you
+├── MEMORY.md      # Long-term curated memory
+├── TOOLS.md       # Local tool notes
+└── memory/
+    └── 2026-02-02.md  # Daily logs
+```
+
+**What to put in memory:**
+- Decisions and their rationale
+- Project context and preferences
+- Lessons learned
+- Recurring tasks
+
+Memory is continuity. Without it, every session starts from zero.
+
+---
+
+## How I use this
+
+1. **Message from phone** — ask the agent to research, draft, or check status
+2. **Agent works** — it has server access, can search web, read files, run commands
+3. **Response arrives** — results come via Telegram
+4. **Agent remembers** — context persists for follow-ups
+
+Works well for:
+- Quick research while away from desk
+- Drafting content that syncs to cloud storage
+- Monitoring server health
+- Managing recurring tasks
+
+---
+
+## Troubleshooting
+
+| Problem | Likely cause | Fix |
+|---------|-------------|-----|
+| Bot not responding | Service stopped | `openclaw gateway start` |
+| "Access not configured" | User not approved | `openclaw pairing approve telegram <code>` |
+| Commands timeout | Network/firewall | Check `ufw status`, security groups |
+| High memory usage | Context too large | Restart gateway |
+| Can't SSH | Banned by fail2ban | `sudo fail2ban-client set sshd unbanip <IP>` |
+
+---
+
+## Sources
+
+- [OpenClaw documentation](https://docs.openclaw.ai) — official setup guides
+- [OpenClaw GitHub](https://github.com/openclaw/openclaw) — source code
+- [Anthropic API pricing](https://www.anthropic.com/pricing) — token costs
+- [Fail2ban documentation](https://www.fail2ban.org) — intrusion prevention
+
+---
+
+*This setup runs 24/7 on a micro EC2 instance. Total infrastructure cost is manageable for an always-available assistant.*
+
+---
+
+# Sub-Agents & Session Isolation
+
+## The short answer
+
+If you change settings (like turning off thinking mode) in your main session, **sub-agents already running are not affected**. They keep working with whatever settings they had when they were spawned.
+
+This is because sub-agents run in **isolated sessions** — separate from your main conversation.
+
+---
+
+## What is a sub-agent?
+
+When your agent needs to do something that takes a while — research, code generation, file analysis — it can **spawn a sub-agent**. This is a separate session that runs in the background while your main conversation continues.
+
+Think of it as:
+
+> "Your agent hiring a contractor to do a specific job, while you keep talking."
+
+You can:
+- Keep chatting in your main session
+- Spawn multiple sub-agents in parallel
+- Get notified when each one finishes
+
+Example: Your agent spawns one sub-agent to analyze a codebase and another to research a topic. Both run simultaneously. You keep messaging about something else entirely.
+
+---
+
+## How sessions work in OpenClaw
+
+OpenClaw runs multiple session types:
+
+| Session type | Description | Example |
+|---|---|---|
+| **Main** | Your direct conversation | Telegram chat with your agent |
+| **Isolated (sub-agent)** | Background task, spawned by main | "Analyze this repo and create a PR" |
+| **Cron** | Triggered by schedule | "Every morning at 8am, compile a briefing" |
+
+Each session is **independent**:
+- Separate conversation history
+- Separate context window
+- Separate settings at spawn time
+- Separate token usage tracking
+
+This is the key insight: **sessions don't share state at runtime**.
+
+---
+
+## What happens when you change settings?
+
+Here's a concrete scenario:
+
+1. You're chatting with your agent with **thinking mode ON**
+2. Agent spawns two sub-agents (they inherit thinking mode ON)
+3. You turn thinking mode **OFF** in your main session
+4. The sub-agents **keep running with thinking mode ON**
+
+Why? Because the sub-agents were spawned as independent sessions. Changing your main session settings is like adjusting the thermostat in your office — it doesn't change the temperature in a contractor's office across town.
+
+### Settings that are locked at spawn time
+
+When a sub-agent is created, these are captured at that moment:
+- **Model** (e.g., Opus, Sonnet)
+- **Thinking mode** (on/off and level)
+- **System prompt** and workspace context
+- **Tool permissions**
+
+### Settings you can specify per sub-agent
+
+When spawning, your agent can explicitly override:
+- `model` — Use a different model than the main session
+- `thinking` — Set a specific thinking level
+
+```
+sessions_spawn(
+  task: "Analyze this codebase",
+  model: "sonnet",        // cheaper model for routine work
+  thinking: "high"         // but still with deep reasoning
+)
+```
+
+---
+
+## Why isolation matters
+
+### 1. Reliability
+If your main session crashes or gets compacted, sub-agents keep running. They're not dependent on the parent session's state.
+
+### 2. Parallel execution
+Multiple sub-agents can run simultaneously because they don't compete for the same context window. Your main session stays responsive.
+
+### 3. Cost control
+Sub-agents can use different models. Heavy analysis? Use Opus. Simple file operations? Use Sonnet. Each session tracks its own token usage.
+
+### 4. No cross-contamination
+A sub-agent working on a sensitive task doesn't leak context into your main conversation. When it finishes, only the summary is delivered back.
+
+---
+
+## The lifecycle of a sub-agent
+
+```
+Main Session                          Sub-Agent Session
+─────────────                         ──────────────────
+1. User asks for complex task
+2. Agent decides to spawn          →  3. New session created
+   sub-agent                           (inherits current settings)
+4. Agent continues chatting        →  5. Sub-agent works independently
+   with user                           (reads files, runs commands,
+                                        searches web, etc.)
+6. User changes settings
+   (e.g., thinking OFF)               7. Sub-agent unaffected
+                                        (still using original settings)
+8. Agent receives notification  ←  9. Sub-agent completes
+   with results summary                (session can be kept or deleted)
+10. Agent shares results
+    with user
+```
+
+---
+
+## Practical implications
+
+### You can keep chatting
+Sub-agents don't block your main session. Spawn a 10-minute research task and keep discussing something else.
+
+### Settings changes are safe
+Turning off thinking mode, switching models, or changing any configuration in your main session won't interrupt background work. This is by design.
+
+### Sub-agents can't message you directly
+They report back to the main session, which then relays the results to you. You won't get a random Telegram message from a sub-agent — your main agent is always the intermediary.
+
+### Token usage is separate
+Each sub-agent has its own token counter. When it finishes, you can see exactly how many tokens it used. This matters for quota management.
+
+---
+
+## When to use sub-agents vs. doing it inline
+
+**Use sub-agents when:**
+- The task takes more than ~30 seconds
+- You want to keep chatting while it works
+- You need parallel execution (multiple tasks at once)
+- The task benefits from a fresh context window (no conversation clutter)
+- You want to use a different model for the task
+
+**Do it inline when:**
+- Quick operations (reading a file, simple search)
+- You need the result immediately to continue the conversation
+- The task requires back-and-forth with you
+
+---
+
+## Cron jobs: another form of isolation
+
+Cron jobs that use `sessionTarget: "isolated"` work the same way. When a cron job fires, it creates a fresh isolated session with whatever model and settings are specified in the job configuration — not whatever your main session is currently using.
+
+This means:
+- Your overnight briefing job keeps running even if you changed your main session to Sonnet
+- A cron job set to use `thinking: "high"` will always use it, regardless of your current toggle
+- Each cron run is independent of previous runs (fresh context)
+
+---
+
+## Summary
+
+| Question | Answer |
+|---|---|
+| Do sub-agents share my main session? | No — fully isolated |
+| If I change settings, are sub-agents affected? | No — they use settings from spawn time |
+| Can I spawn multiple sub-agents? | Yes — they run in parallel |
+| Do sub-agents use my token quota? | Yes — but tracked separately per session |
+| Can I specify different models per sub-agent? | Yes — via `model` parameter |
+| Do cron jobs work the same way? | Yes — isolated cron jobs are independent sessions |
+
+The core principle: **sessions are isolated by design**. This gives you reliability, parallelism, and the freedom to change settings without worrying about breaking background work.
+
+---
+
+# Voice notes with Telegram
+
+## The problem
+
+Voice input is faster than typing, especially on mobile. You want to send a voice note to your OpenClaw agent and have it understand what you said.
+
+OpenClaw has built-in audio transcription support via Deepgram, but there's a catch: **it doesn't work automatically with Telegram voice notes** (as of v2026.1.30). The voice files get saved, but the transcription pipeline doesn't trigger. The agent receives an empty message.
+
+This appears to be a Telegram-specific issue. The built-in transcription may only work for WhatsApp, based on documentation references to "WhatsApp Web channel behavior."
+
+Until this is fixed upstream, here's a workaround that works reliably.
+
+---
+
+## The solution
+
+We build a manual transcription system:
+
+1. **Voice files are saved** — OpenClaw already saves incoming audio to `~/.openclaw/media/inbound/`
+2. **Trigger word activates transcription** — Send "audio" after your voice note
+3. **Script transcribes via Deepgram API** — Converts speech to text with retry logic
+4. **Agent receives and executes** — Treats the transcription as an instruction
+
+The flow becomes:
+
+```
+[Voice note] → [Type "audio"] → [Agent transcribes] → [Agent executes instruction]
+```
+
+Not as seamless as automatic transcription, but reliable and fast.
+
+---
+
+## Why this approach
+
+**Why not wait for a fix?**
+
+The upstream issue might take time. This workaround lets you use voice input today.
+
+**Why Deepgram?**
+
+- Deepgram's `whisper-large` model handles Telegram's Opus audio format well
+- Free tier gives $200 credit (~770 hours of audio)
+- Simple API, no complex setup
+
+**Why a trigger word?**
+
+Without automatic transcription, the agent doesn't know a voice note arrived. The trigger word ("audio") signals: "transcribe the latest file and treat it as my instruction."
+
+---
+
+## Requirements
+
+Before starting:
+
+- **OpenClaw running on a server** — with Telegram configured
+- **Deepgram account** — free tier at [deepgram.com](https://deepgram.com)
+- **ffmpeg installed** — for audio conversion
+- **curl and jq** — for API calls and JSON parsing
+
+---
+
+## Setup walkthrough
+
+### 1. Get a Deepgram API key
+
+1. Sign up at [console.deepgram.com](https://console.deepgram.com)
+2. Create a new API key with "Usage" permissions
+3. Copy the key — you'll need it in the next step
+
+### 2. Add the API key to your environment
+
+Add to `~/.bashrc`:
+
+```bash
+export DEEPGRAM_API_KEY="your-key-here"
+```
+
+Reload:
+
+```bash
+source ~/.bashrc
+```
+
+**Important:** If OpenClaw runs as a systemd service, environment variables from `.bashrc` aren't available. Add the key to the service file:
+
+```bash
+# Edit the service file
+nano ~/.config/systemd/user/openclaw-gateway.service
+
+# Add under [Service]:
+Environment=DEEPGRAM_API_KEY=your-key-here
+
+# Reload and restart
+systemctl --user daemon-reload
+systemctl --user restart openclaw-gateway
+```
+
+### 3. Install dependencies
+
+```bash
+sudo apt install ffmpeg jq curl
+```
+
+### 4. Create the transcription script
+
+Create `~/.openclaw/scripts/transcribe-deepgram`:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+FILE="$1"
+LANG="${2:-en}"
+
+if [[ -z "$DEEPGRAM_API_KEY" ]]; then
+  echo "Error: DEEPGRAM_API_KEY not set" >&2
+  exit 1
+fi
+
+if [[ ! -f "$FILE" ]]; then
+  echo "Error: File not found: $FILE" >&2
+  exit 1
+fi
+
+# Convert to WAV for better compatibility
+TMP_WAV=$(mktemp --suffix=.wav)
+trap "rm -f $TMP_WAV" EXIT
+
+ffmpeg -y -i "$FILE" -ar 16000 -ac 1 "$TMP_WAV" 2>/dev/null
+
+# Call Deepgram API
+RESPONSE=$(curl -s -X POST "https://api.deepgram.com/v1/listen?model=whisper-large&language=${LANG}" \
+  -H "Authorization: Token $DEEPGRAM_API_KEY" \
+  -H "Content-Type: audio/wav" \
+  --data-binary "@$TMP_WAV")
+
+# Extract transcript
+TRANSCRIPT=$(echo "$RESPONSE" | jq -r '.results.channels[0].alternatives[0].transcript // empty')
+
+if [[ -z "$TRANSCRIPT" ]]; then
+  echo "Error: No transcript returned" >&2
+  echo "Response: $RESPONSE" >&2
+  exit 1
+fi
+
+echo "$TRANSCRIPT"
+```
+
+Make executable:
+
+```bash
+chmod +x ~/.openclaw/scripts/transcribe-deepgram
+```
+
+### 5. Create the robust wrapper script
+
+This script adds retry logic and auto-cleanup. Create `~/.openclaw/scripts/transcribe-robust`:
+
+```bash
+#!/usr/bin/env bash
+set -uo pipefail
+
+INBOUND_DIR="$HOME/.openclaw/media/inbound"
+SCRIPT_DIR="$HOME/.openclaw/scripts"
+
+# Handle "latest" keyword
+if [[ "${1:-}" == "latest" ]]; then
+  FILE=$(ls -t "$INBOUND_DIR"/file_*---*.ogg 2>/dev/null | head -1)
+  if [[ -z "$FILE" ]]; then
+    echo "# No audio files found in $INBOUND_DIR"
+    exit 1
+  fi
+  echo "# Found latest file: $FILE"
+else
+  FILE="$1"
+fi
+
+LANG="${2:-en}"
+MAX_ATTEMPTS="${3:-3}"
+DELAY="${4:-2}"
+
+echo "# Attempting transcription of: $FILE"
+echo "# Max attempts: $MAX_ATTEMPTS, Delay: ${DELAY}s"
+
+for ((i=1; i<=MAX_ATTEMPTS; i++)); do
+  echo "# Attempt $i/$MAX_ATTEMPTS..."
+
+  # Wait for file to stabilize (still downloading?)
+  PREV_SIZE=0
+  CURR_SIZE=$(stat -c%s "$FILE" 2>/dev/null || echo "0")
+  while [[ "$CURR_SIZE" != "$PREV_SIZE" ]]; do
+    sleep 0.5
+    PREV_SIZE=$CURR_SIZE
+    CURR_SIZE=$(stat -c%s "$FILE" 2>/dev/null || echo "0")
+  done
+  echo "# File stable at $CURR_SIZE bytes, transcribing..."
+
+  # Attempt transcription
+  RESULT=$("$SCRIPT_DIR/transcribe-deepgram" "$FILE" "$LANG" 2>&1)
+  EXIT_CODE=$?
+
+  if [[ $EXIT_CODE -eq 0 && -n "$RESULT" && "$RESULT" != "Error:"* ]]; then
+    echo "# Success on attempt $i"
+    echo "$RESULT"
+
+    # Auto-delete the processed file
+    rm -f "$FILE"
+    echo "# Deleted: $FILE" >&2
+    exit 0
+  fi
+
+  echo "# Attempt $i failed: $RESULT" >&2
+
+  if [[ $i -lt $MAX_ATTEMPTS ]]; then
+    echo "# Waiting ${DELAY}s before retry..."
+    sleep "$DELAY"
+  fi
+done
+
+echo "# All $MAX_ATTEMPTS attempts failed"
+exit 1
+```
+
+Make executable:
+
+```bash
+chmod +x ~/.openclaw/scripts/transcribe-robust
+```
+
+### 6. Configure your agent to use the trigger word
+
+Add to your agent's workspace files (e.g., `TOOLS.md` or `MEMORY.md`):
+
+```markdown
+### Voice Transcription
+
+**Trigger word: "audio"** — When you send just "audio", immediately transcribe the latest voice note.
+
+**Process:**
+1. Run `~/.openclaw/scripts/transcribe-robust latest`
+2. Reply with the transcription
+3. Execute the transcribed instruction
+
+**Why:** OpenClaw's built-in Telegram audio transcription doesn't trigger automatically. This manual trigger is the workaround.
+```
+
+The agent will learn to respond to "audio" by running the transcription script.
+
+---
+
+## Usage
+
+1. **Send a voice note** via Telegram to your bot
+2. **Type "audio"** as a follow-up message
+3. **Agent transcribes** and shows you what it heard
+4. **Agent executes** the instruction from the voice note
+
+Example exchange:
+
+```
+You: [voice note: "Check the disk usage on the server"]
+You: audio
+
+Agent: **Transcription:**
+> "Check the disk usage on the server"
+
+[runs df -h and shows results]
+```
+
+---
+
+## How I use this
+
+Voice notes are my primary input method. Typing on mobile is slow. Speaking is fast.
+
+My workflow:
+
+- **Walking or commuting** — send voice instructions
+- **Quick tasks** — "check my calendar", "what's the weather"
+- **Complex requests** — explain context verbally, faster than typing
+
+The extra "audio" message is a small friction, but acceptable until automatic transcription works.
+
+---
+
+## Troubleshooting
+
+| Problem | Likely cause | Fix |
+|---------|--------------|-----|
+| "DEEPGRAM_API_KEY not set" | Env var missing | Add to `.bashrc` and service file |
+| "No audio files found" | Files cleaned up or wrong path | Check `~/.openclaw/media/inbound/` |
+| Empty transcript | Wrong model for codec | Use `whisper-large`, not `nova-2` |
+| Permission denied | Script not executable | Run `chmod +x` on both scripts |
+| File still downloading | Transcription too fast | Script has stability check, should handle this |
+
+### Verifying files are saved
+
+Check that Telegram voice notes arrive:
+
+```bash
+ls -la ~/.openclaw/media/inbound/
+```
+
+You should see files like `file_14---83e1fcde-69a1-4773-9cb0-f771f7bdb8b7.ogg`.
+
+### Testing transcription manually
+
+```bash
+~/.openclaw/scripts/transcribe-robust latest
+```
+
+Should output the transcribed text if a voice file exists.
+
+---
+
+## Cost
+
+Deepgram pricing after free tier:
+
+- **Pay-as-you-go:** ~$0.0043/minute
+- **Free tier:** $200 credit (~770 hours)
+
+For typical personal use, the free tier lasts a long time.
+
+---
+
+## Why not use OpenClaw's built-in transcription?
+
+OpenClaw does have audio transcription config:
+
+```json
+"tools.media.audio": {
+  "enabled": true,
+  "language": "en",
+  "models": [{"provider": "deepgram", "model": "whisper-large"}]
+}
+```
+
+This config is correct, and I have it enabled. The issue is that **Telegram voice notes don't trigger the transcription pipeline**. The files save, but the agent receives no transcript.
+
+I've reported this to the OpenClaw community. It may be fixed in a future release, or it may be a Telegram-specific limitation. This workaround bridges the gap.
+
+---
+
+## Future improvements
+
+If automatic transcription gets fixed upstream:
+
+- Remove the trigger word requirement
+- Agent would receive `{{Transcript}}` automatically in the message
+- These scripts become backup/fallback only
+
+Until then, "voice note + audio" is a reliable pattern.
+
+---
+
+## Sources
+
+- [Deepgram documentation](https://developers.deepgram.com/) — API reference
+- [OpenClaw documentation](https://docs.openclaw.ai) — official setup guides
+- [OpenClaw GitHub](https://github.com/openclaw/openclaw) — source and issues
+- [ffmpeg documentation](https://ffmpeg.org/documentation.html) — audio conversion
+
