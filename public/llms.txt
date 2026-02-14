@@ -8,6 +8,7 @@
 - [Delegating Development to Your Agent](https://openclaw.turtleand.com/topics/git-autonomous-development): Configure Git access so OpenClaw can develop on your behalf while you're away.
 - [Persistent AI agents](https://openclaw.turtleand.com/topics/persistent-agents): Deploy an always-on AI agent on a cloud server with messaging and security.
 - [Sub-Agents & Session Isolation](https://openclaw.turtleand.com/topics/sub-agents-and-session-isolation): How sub-agents work, why they're isolated from your main session, and what happens when you change settings mid-flight.
+- [Telegram Groups & Topics: Organizing AI Conversations](https://openclaw.turtleand.com/topics/telegram-groups-topics): Use Telegram supergroups with forum topics to organize your AI agent's conversations — news in one thread, work coaching in another, system reports in a third.
 - [Voice notes with Telegram](https://openclaw.turtleand.com/topics/voice-notes-telegram): Send voice messages to your AI agent and have them transcribed and executed.
 
 ## About
