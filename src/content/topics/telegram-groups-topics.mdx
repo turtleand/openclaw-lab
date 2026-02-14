@@ -1,0 +1,358 @@
+---
+title: "Telegram Groups & Topics: Organizing AI Conversations"
+module: "Module 0: Setup & Safety"
+subtopic: "telegram-groups-topics"
+summary: "Use Telegram supergroups with forum topics to organize your AI agent's conversations — news in one thread, work coaching in another, system reports in a third."
+status: "done"
+articles: []
+---
+
+## The problem: one chat, too many conversations
+
+When everything goes through a single DM — news updates, work coaching, system reports, overnight briefings, daily check-ins — the signal-to-noise ratio drops fast. You scroll past security reports looking for that news digest from this morning. You lose a strategic insight buried between cron job outputs.
+
+Telegram **forum topics** fix this. Available in supergroups, they create named threads within a single group. Combined with OpenClaw, you get:
+
+- **Separate conversation histories** — each topic gets its own session
+- **Organized cron delivery** — overnight briefings go to one topic, security reports to another
+- **Custom behavior per topic** — different system prompts, different tool access
+- **Clean mental model** — glance at topic names, find what you need
+
+Think of it as:
+
+> "Slack channels, but for your personal AI agent."
+
+---
+
+## How OpenClaw handles topics
+
+Before diving into setup, it helps to understand the architecture:
+
+- Each topic gets a **unique session key**: `agent:main:telegram:group:<chatId>:topic:<threadId>`
+- Topics **inherit** their parent group's config unless overridden
+- The **General** topic (thread ID `1`) is special — Telegram's API requires different handling for it
+- Each topic session is **isolated** — conversation history doesn't leak between topics
+
+This means the bot in your "News" topic doesn't know what you discussed in "Work Coaching." That's by design. Shared context lives in workspace files (MEMORY.md, daily notes) that the bot reads regardless of which topic it's in.
+
+---
+
+## Step 1: Create the supergroup
+
+In Telegram (mobile or desktop):
+
+1. **Create a new group** — give it a name (e.g., "🧠 OpenClaw Hub")
+2. **Enable topics**: Group Settings → Topics → Enable
+3. **Create your topics** — tap "Create Topic" for each one
+
+Suggested structure:
+
+| Topic | Emoji | Purpose |
+|-------|-------|---------|
+| General | 💬 | Daily chat, quick questions |
+| News & Research | 📰 | AI/tech/blockchain digests |
+| Work Coaching | 💼 | Career strategy, work dynamics |
+| Content & Publishing | ✍️ | Blog posts, PRs, content pipeline |
+| Security & System | 🔒 | Healthchecks, security reports |
+| Overnight Briefings | 🌙 | Morning prep, overnight analysis |
+
+You can always add or rename topics later.
+
+---
+
+## Step 2: Configure your bot
+
+Your bot needs to see all group messages. Two options:
+
+**Option A: Disable privacy mode** (in BotFather)
+1. Message `@BotFather` → `/setprivacy` → select your bot → **Disable**
+2. After changing this, **remove and re-add** the bot to the group (required for the change to take effect)
+
+**Option B: Make the bot a group admin** (recommended)
+Admin bots bypass privacy mode entirely. When you add the bot to the group, promote it to admin with:
+- ✅ Send Messages
+- ✅ Manage Topics (optional — lets the bot create/manage topics)
+- ✅ Pin Messages (optional — useful for summaries)
+
+---
+
+## Step 3: Add the bot and get IDs
+
+1. Open your supergroup → **Add Member** → search for your bot
+2. Promote to admin (recommended)
+3. Send a test message in any topic
+
+Now you need two pieces of information:
+
+### Group chat ID
+
+The numeric chat ID (negative number like `-1001234567890`). Find it from gateway logs:
+
+```bash
+openclaw logs --follow
+# Send a message in the group, look for chat.id in the log output
+```
+
+Or via the Bot API:
+
+```bash
+curl "https://api.telegram.org/bot<TOKEN>/getUpdates" \
+  | jq '.result[-1].message.chat.id'
+```
+
+### Topic thread IDs
+
+Each topic has a numeric `message_thread_id`. Send a message in each topic and check the gateway logs — look for `message_thread_id` in the inbound message.
+
+Note down every thread ID. You'll need them for per-topic config and cron delivery.
+
+---
+
+## Step 4: Configure OpenClaw
+
+### Minimal config
+
+This gets the bot responding in all topics:
+
+```json
+{
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "botToken": "YOUR_BOT_TOKEN",
+      "groupPolicy": "allowlist",
+      "groupAllowFrom": ["YOUR_USER_ID"],
+      "groups": {
+        "-1001234567890": {
+          "requireMention": false
+        }
+      }
+    }
+  }
+}
+```
+
+Setting `requireMention: false` means you don't need to @mention the bot — useful in a private group where you're the only human.
+
+### Full config with per-topic customization
+
+```json
+{
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "botToken": "YOUR_BOT_TOKEN",
+      "groupPolicy": "allowlist",
+      "groupAllowFrom": ["YOUR_USER_ID"],
+      "groups": {
+        "-1001234567890": {
+          "requireMention": false,
+          "systemPrompt": "You are in the OpenClaw Hub. Be concise.",
+          "topics": {
+            "1": {
+              "systemPrompt": "General chat. Be conversational."
+            },
+            "42": {
+              "systemPrompt": "Focus on AI, blockchain, and tech news. Include source links and consequence analysis.",
+              "tools": { "deny": ["exec"] }
+            },
+            "43": {
+              "systemPrompt": "Act as a strategic work coach. Reference the career transition plan. Be direct."
+            },
+            "45": {
+              "systemPrompt": "System administration and security. Report with severity levels."
+            },
+            "46": {
+              "systemPrompt": "Deliver overnight analysis. Key findings first, then details."
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Apply the config:
+
+```bash
+openclaw gateway restart
+```
+
+Or use the gateway config tool to patch your existing config without replacing it entirely.
+
+---
+
+## Routing cron jobs to topics
+
+This is where topics become powerful. Each cron job can deliver its output to a specific topic using the delivery target format:
+
+```
+-1001234567890:topic:<threadId>
+```
+
+### Example: Security report → Security topic
+
+```json
+{
+  "name": "Daily Security Check",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 14 * * *",
+    "tz": "UTC"
+  },
+  "sessionTarget": "isolated",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Run a security healthcheck. Check SSH logins, disk usage, pending updates."
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "-1001234567890:topic:45"
+  }
+}
+```
+
+### Example: Morning briefing → Overnight topic
+
+```json
+{
+  "name": "Morning Briefing Delivery",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 11 * * *",
+    "tz": "UTC"
+  },
+  "sessionTarget": "isolated",
+  "payload": {
+    "kind": "agentTurn",
+    "message": "Read the latest overnight briefing and deliver a concise summary.",
+    "model": "sonnet"
+  },
+  "delivery": {
+    "mode": "announce",
+    "channel": "telegram",
+    "to": "-1001234567890:topic:46"
+  }
+}
+```
+
+### Delivery rules to remember
+
+- `delivery.mode = "announce"` → cron output goes directly to the specified topic
+- `delivery.mode = "none"` → no message posted (for background work)
+- If `delivery` is omitted for isolated jobs, OpenClaw defaults to `announce` in the last-used channel
+- The `delivery.channel` and `delivery.to` fields handle routing — don't use the messaging tool inside the cron run
+
+---
+
+## Per-topic configuration options
+
+Each topic under `topics.<threadId>` supports:
+
+| Setting | What it does | Inherits from group? |
+|---------|-------------|---------------------|
+| `systemPrompt` | Extra instructions for this topic | Yes |
+| `requireMention` | Whether @mention is needed | Yes |
+| `allowFrom` | Who can trigger the bot here | Yes |
+| `tools` | Tool allow/deny lists | Yes |
+| `enabled` | Disable the topic entirely | Yes |
+
+### Restricting tools per topic
+
+```json
+{
+  "topics": {
+    "42": {
+      "tools": { "deny": ["exec", "write", "edit"] }
+    }
+  }
+}
+```
+
+This makes the News topic read-only — the bot can search the web and analyze, but can't execute commands or modify files.
+
+### Disabling a topic
+
+```json
+{
+  "topics": {
+    "99": { "enabled": false }
+  }
+}
+```
+
+The bot silently ignores messages in disabled topics.
+
+---
+
+## Privacy and security
+
+### Keep it personal
+
+Telegram doesn't support per-topic member restrictions. **Everyone in the group sees all topics.** For a personal AI hub, keep the group private with only you and the bot.
+
+### Session isolation
+
+Each topic has its own session — conversation history doesn't cross between topics. But workspace files (MEMORY.md, daily notes, guides) are shared across all sessions because they belong to the same agent.
+
+### Access control
+
+```json
+{
+  "groupPolicy": "allowlist",
+  "groupAllowFrom": ["YOUR_USER_ID"]
+}
+```
+
+Even in groups with `groupPolicy: "open"`, control commands (`/status`, `/reset`) still require authorization.
+
+---
+
+## Troubleshooting
+
+**Bot doesn't respond in topics:**
+1. Check privacy mode — must be Disabled in BotFather, OR bot must be admin
+2. After changing privacy mode, remove and re-add the bot
+3. Check `openclaw logs --follow` for "skipping group message" errors
+4. Verify the group ID is in your config
+
+**Bot responds in some topics but not others:**
+1. Check if the topic has `enabled: false`
+2. Check per-topic `requireMention` settings
+
+**Cron delivers to DM instead of group topic:**
+1. Verify `delivery.to` format: `-1001234567890:topic:<threadId>`
+2. Verify `delivery.channel` is `"telegram"`
+3. Check the thread ID is correct (from logs)
+
+**Messages appear in General instead of the target topic:**
+This usually means `message_thread_id` is missing. Verify you're using the `:topic:` format in delivery targets.
+
+---
+
+## Limitations
+
+**No per-topic member restrictions** — Telegram limitation. Use a private group as workaround.
+
+**No draft streaming in groups** — Replies appear as complete messages, not streamed word-by-word. This is a Telegram API limitation.
+
+**Session context doesn't cross topics** — By design. Use workspace files for shared context.
+
+**Rate limits apply per bot** — Many simultaneous cron deliveries could hit limits. Stagger schedules by a few minutes. OpenClaw retries automatically with exponential backoff.
+
+---
+
+## Summary
+
+| What | How |
+|------|-----|
+| Create topics | Telegram → Group Settings → Enable Topics |
+| Bot access | Admin role OR privacy mode disabled |
+| Config location | `channels.telegram.groups.<chatId>.topics` |
+| Per-topic prompts | `topics.<threadId>.systemPrompt` |
+| Cron delivery | `delivery.to: "-100xxx:topic:<threadId>"` |
+| Session key format | `agent:main:telegram:group:<chatId>:topic:<threadId>` |
+
+The setup takes about 15 minutes. The payoff — organized conversations, targeted cron delivery, topic-specific behavior — compounds every day you use it.
