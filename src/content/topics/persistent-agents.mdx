@@ -1,17 +1,17 @@
 ---
-title: "Persistent AI agents"
+title: "Persistent Agents with OpenClaw"
 module: "Module 0: Setup & Safety"
 subtopic: "persistent-agents"
-summary: "Deploy an always-on AI agent on a cloud server with messaging and security."
+summary: "Deploy an always-on OpenClaw agent on a cloud server with messaging and security."
 status: "done"
 articles: []
 ---
 
-## What is a persistent AI agent?
+## What is a persistent OpenClaw agent?
 
-Instead of opening a chat window when you need help, a persistent agent runs 24/7 on a server. You can message it from your phone and get responses anytime.
+Instead of opening a chat window when you need help, a persistent [OpenClaw](https://openclaw.ai/) agent runs 24/7 on a server. You can message it from your phone and get responses anytime.
 
-[OpenClaw](https://openclaw.ai/) is an open-source framework for this. It lets you:
+OpenClaw is an open-source framework purpose-built for this. It lets you:
 
 - Receive messages via Telegram, Signal, or Discord
 - Execute commands and manage files on a server
@@ -20,7 +20,7 @@ Instead of opening a chat window when you need help, a persistent agent runs 24/
 
 Think of it as:
 
-> "An AI assistant living on a server, available whenever you need it."
+> "Your OpenClaw agent living on a server, available whenever you need it."
 
 ---
 
@@ -36,21 +36,21 @@ Before setting this up, be aware of potential issues:
 
 ---
 
-## Why run a persistent agent
+## Why run a persistent OpenClaw agent
 
-A persistent agent changes the interaction from "I open a chat" to "I message my assistant."
+A persistent OpenClaw agent changes the interaction from "I open a chat" to "I message my agent."
 
 **Benefits:**
-- **Always available** — Message from your phone, get a response
-- **Proactive capabilities** — Schedule tasks, run checks, send reminders
-- **Shared context** — Memory persists across sessions
-- **Integration surface** — One agent connecting calendar, files, APIs
+- **Always available** — Message from your phone, get a response from OpenClaw
+- **Proactive capabilities** — Cron jobs, heartbeat checks, scheduled reminders
+- **Shared context** — OpenClaw's memory system persists across sessions
+- **Integration surface** — One agent connecting calendar, files, APIs, messaging channels
 
 **Good for:**
-- AI assistant accessible from anywhere
+- An OpenClaw agent accessible from anywhere via Telegram, Signal, or Discord
 - Recurring tasks that benefit from automation
-- Experimenting with agent capabilities
-- Owning your infrastructure
+- Experimenting with agent capabilities on your own infrastructure
+- Full ownership of your AI setup — no vendor lock-in
 
 **Not ideal if:**
 - You only need occasional interactions
@@ -131,7 +131,7 @@ The agent now runs persistently and survives reboots.
 
 ## Security hardening
 
-A server running an AI with shell access requires careful security.
+A server running OpenClaw with shell access requires careful security.
 
 ### Firewall
 
@@ -183,9 +183,9 @@ OpenClaw uses pairing mode — unknown users can't interact without approval. Ap
 
 ---
 
-## Memory and context
+## OpenClaw memory and context
 
-OpenClaw maintains workspace files that persist:
+OpenClaw maintains workspace files that persist across sessions and restarts:
 
 ```
 ~/.openclaw/workspace/
@@ -208,12 +208,12 @@ Memory is continuity. Without it, every session starts from zero.
 
 ---
 
-## How I use this
+## How I use OpenClaw
 
-1. **Message from phone** — ask the agent to research, draft, or check status
-2. **Agent works** — it has server access, can search web, read files, run commands
-3. **Response arrives** — results come via Telegram
-4. **Agent remembers** — context persists for follow-ups
+1. **Message from phone** — ask OpenClaw to research, draft, or check status
+2. **OpenClaw works** — it has server access, can search web, read files, run commands
+3. **Response arrives** — results come back via Telegram
+4. **OpenClaw remembers** — context persists for follow-ups via MEMORY.md and daily logs
 
 Works well for:
 - Quick research while away from desk
@@ -244,4 +244,4 @@ Works well for:
 
 ---
 
-*This setup runs 24/7 on a micro EC2 instance. Total infrastructure cost is manageable for an always-available assistant.*
+*This OpenClaw setup runs 24/7 on a cloud server. Total infrastructure cost is manageable for an always-available agent.*
