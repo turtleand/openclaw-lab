@@ -1,8 +1,8 @@
 ---
-title: "I Asked an AI to Design My Banner. Then I Built It Myself."
+title: "I Asked OpenClaw to Design My Banner. Here's What Happened."
 module: "Module 1: Foundations"
 subtopic: "banner-generation-comparison"
-summary: "A real comparison: AI image generation vs. code-generated graphics for a Twitter/X profile banner. Same brief, two approaches, very different results."
+summary: "A real comparison: AI image generation vs. OpenClaw code generation for a Twitter/X profile banner. Same brief, two approaches, very different results."
 status: "done"
 articles: []
 ---
@@ -20,7 +20,7 @@ Two approaches. Same brief. Let's compare.
 
 ## Approach 1: AI image generation
 
-I gave an established image generation model a detailed prompt:
+I gave a standard image generation model a detailed prompt:
 
 ```
 Create a Twitter/X header banner (1500x500 pixels).
@@ -48,9 +48,9 @@ Not bad at first glance. But look closer:
 
 This is the fundamental limitation of image generation for typography: the model understands what text *looks like* but doesn't understand typographic *rules*. Kerning, baseline alignment, optical centering — these are precise crafts, not vibes.
 
-## Approach 2: Code generation
+## Approach 2: OpenClaw code generation
 
-My AI agent built an HTML file instead:
+I asked [OpenClaw](https://openclaw.ai/) to solve it differently. Instead of generating an image, OpenClaw wrote an HTML file:
 
 ```html
 <body style="width:1500px; height:500px; background:#0a1628">
@@ -88,7 +88,7 @@ With CSS handling the design:
 }
 ```
 
-Then rendered it to a 1500×500 PNG using a headless browser (Playwright):
+Then OpenClaw rendered it to a 1500×500 PNG using a headless browser (Playwright):
 
 ```javascript
 const page = await browser.newPage();
@@ -103,7 +103,7 @@ await page.screenshot({ path: 'x-banner.png' });
 
 ## The comparison
 
-| Aspect | AI Image Gen | Code + Screenshot |
+| Aspect | AI Image Gen | OpenClaw + Code |
 |--------|:---:|:---:|
 | Typography precision | ❌ Inconsistent | ✅ Pixel-perfect |
 | Color accuracy | ~Close | ✅ Exact hex values |
@@ -111,18 +111,18 @@ await page.screenshot({ path: 'x-banner.png' });
 | Centering/alignment | ❌ Off | ✅ CSS handles it |
 | Background subtlety | ❌ Too visible | ✅ Controlled opacity |
 | Time to generate | ~30 seconds | ~5 minutes |
-| Iteration speed | Slow (re-prompt) | Fast (edit CSS, re-run) |
+| Iteration speed | Slow (re-prompt) | Fast (OpenClaw edits CSS, re-runs) |
 | Reproducibility | ❌ Different each time | ✅ Identical every time |
 
 ## The lesson
 
 AI image generation is great for **creative exploration** — generating concepts, mood boards, illustrations where imperfection adds character. But for anything requiring **typographic precision** — banners, social headers, business cards, slides — code wins.
 
-The irony: I used an AI agent to *write the code* that generated the banner. The AI wasn't removed from the process — it just operated at the right layer. Instead of generating pixels directly, it generated the instructions (HTML/CSS) that a rendering engine turned into pixels.
+The irony: OpenClaw *wrote the code* that generated the banner. AI wasn't removed from the process. It just operated at the right layer. Instead of generating pixels directly, OpenClaw generated the instructions (HTML/CSS) that a rendering engine turned into pixels.
 
-**AI at the right abstraction level** > AI doing everything end-to-end.
+**AI at the right abstraction level** beats AI doing everything end-to-end.
 
-This is a pattern that keeps showing up: the best results come not from asking AI to do the whole job, but from finding the layer where AI adds the most value and letting deterministic tools handle the rest.
+This is a pattern that keeps showing up: the best results come not from asking AI to do the whole job, but from finding the layer where it adds the most value and letting deterministic tools handle the rest.
 
 ## Try it yourself
 
@@ -132,4 +132,4 @@ The full HTML template is ~40 lines. Swap the text, colors, and fonts for your o
 
 ---
 
-*Built with OpenClaw + Playwright. The AI wrote the code. The browser rendered it. The human approved it.*
+*Built with OpenClaw + Playwright. OpenClaw wrote the code. The browser rendered it. I just approved it.*
