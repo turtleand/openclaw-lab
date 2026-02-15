@@ -1,0 +1,272 @@
+---
+title: "Fix Voice Message Speed Control in OpenClaw + Telegram"
+module: "Module 0: Setup & Safety"
+subtopic: "telegram-voice-speed-control"
+summary: "Convert TTS output to OGG Opus so Telegram voice messages get proper speed control buttons."
+status: "done"
+articles: []
+---
+
+## The problem
+
+Your OpenClaw agent sends TTS voice messages on Telegram. They arrive, but something's missing: the speed control button.
+
+No 0.5x. No 1x. No 1.5x. No 2x. Just fixed-speed audio.
+
+If your agent sends briefings, narrations, or long-form content, you're stuck listening at 1x speed. A 2-minute update takes 2 minutes. At 2x speed, it would take 1 minute. Over weeks, that's hours of saved time.
+
+The issue isn't your TTS provider. It's the audio format.
+
+OpenClaw's TTS outputs MP3 files. When sent via Telegram's `sendVoice` API, MP3 files don't get proper voice message treatment. They lack the waveform visualization and, critically, the speed control button.
+
+---
+
+## The fix
+
+Convert MP3 to OGG Opus before sending to Telegram.
+
+One ffmpeg command does it:
+
+```bash
+ffmpeg -i input.mp3 -c:a libopus -b:a 48k -vbr on -compression_level 10 -frame_duration 60 -application voip output.ogg
+```
+
+Send the `.ogg` file via `sendVoice` instead of the `.mp3`. Telegram now recognizes it as a proper voice message. You get the waveform visualization and speed control buttons.
+
+---
+
+## Why OGG Opus matters
+
+Telegram's Bot API documentation says:
+
+> "For sendVoice to work, your audio must be in an .ogg file encoded with OPUS."
+
+But the docs don't emphasize this. Most people discover it when they notice missing features.
+
+MP3 files sent via `sendVoice` technically work. They play. But Telegram doesn't treat them as voice messages. No waveform. No speed control. Just a plain audio file.
+
+OGG Opus is the magic format. It's what Telegram's mobile apps use for voice messages. When you send audio in this format:
+
+- Telegram renders the spectrogram waveform
+- Speed control buttons appear (0.5x/1x/1.5x/2x)
+- File size is smaller than MP3 at similar quality
+- Playback starts faster (shorter frame duration)
+
+The ffmpeg flags matter:
+
+- `-c:a libopus` — Encode using the Opus codec
+- `-b:a 48k` — Target bitrate of 48kbps (good quality for voice)
+- `-vbr on` — Variable bitrate (adapts to content complexity)
+- `-compression_level 10` — Maximum compression (smaller files)
+- `-frame_duration 60` — 60ms frames (faster playback start)
+- `-application voip` — Optimize for voice (not music)
+
+That last flag (`-application voip`) is key. It tells Opus to prioritize speech clarity over music fidelity.
+
+---
+
+## Implementation approaches
+
+There are two ways to handle this, depending on where you run OpenClaw.
+
+### Option 1: Pre-convert TTS output
+
+If you control the TTS pipeline, convert immediately after generation:
+
+```bash
+# Generate TTS (example using edge-tts)
+edge-tts --text "Your message here" --write-media output.mp3
+
+# Convert to OGG Opus
+ffmpeg -i output.mp3 -c:a libopus -b:a 48k -vbr on -compression_level 10 -frame_duration 60 -application voip output.ogg
+
+# Send via Telegram
+# (your sendVoice API call here, using output.ogg)
+```
+
+This works well if you're building a custom integration or have a wrapper script.
+
+### Option 2: Modify OpenClaw's media handling
+
+If OpenClaw manages TTS internally, you can intercept the output before it's sent.
+
+Add a media conversion step in your agent's workflow:
+
+```bash
+# Check for MP3 files in the outbound media folder
+for mp3 in ~/.openclaw/media/outbound/*.mp3; do
+  ogg="${mp3%.mp3}.ogg"
+  ffmpeg -i "$mp3" -c:a libopus -b:a 48k -vbr on -compression_level 10 -frame_duration 60 -application voip "$ogg"
+  rm "$mp3"  # Remove MP3 after conversion
+done
+```
+
+Run this as a cron job or hook it into OpenClaw's message queue.
+
+### Option 3: One-time conversion for existing files
+
+If you already have MP3 files you want to send as voice messages:
+
+```bash
+# Batch convert
+for mp3 in *.mp3; do
+  ffmpeg -i "$mp3" -c:a libopus -b:a 48k -vbr on -compression_level 10 -frame_duration 60 -application voip "${mp3%.mp3}.ogg"
+done
+```
+
+Then send the `.ogg` files instead of the `.mp3` files.
+
+---
+
+## Why this isn't documented
+
+I searched for "Telegram voice message speed control" and "Telegram sendVoice spectrogram". Found discussions about:
+
+- Missing spectrograms (solved by correct bitrate)
+- Audio transcription issues (solved by correct codec)
+- File size optimization (solved by compression settings)
+
+But nobody explicitly connected "MP3 input" to "missing speed control button."
+
+The Telegram Bot API docs mention OGG Opus as a requirement, but they don't explain what happens if you ignore it. MP3 files still work. They just don't get full voice message features.
+
+Stack Overflow threads confirm: bitrate should be 32-64kbps for the spectrogram to render properly. The `-application voip` flag is what makes Opus optimize for speech.
+
+This affects any Telegram bot sending TTS audio. Not just OpenClaw. If you're using Google TTS, Azure Speech, ElevenLabs, or any other provider that outputs MP3, you'll hit this issue.
+
+---
+
+## Testing it works
+
+Send a test voice message to your Telegram bot after implementing the conversion:
+
+1. Agent generates TTS
+2. Script converts MP3 to OGG Opus
+3. Agent sends OGG file via `sendVoice`
+4. Open Telegram on mobile
+5. Play the message
+
+You should see:
+
+- Waveform visualization (not just a play button)
+- Speed control button in the top right
+- Tapping it cycles: 1x → 1.5x → 2x → 0.5x → 1x
+
+If you see these, it worked. If not, check:
+
+- File extension is `.ogg`
+- Codec is Opus (`ffprobe output.ogg` should show `Audio: opus`)
+- Bitrate is in the 32-64kbps range
+- You used `-application voip`
+
+---
+
+## How I use this
+
+My OpenClaw agent sends morning briefings. News summaries. Project updates. Long-form explanations of technical concepts.
+
+Before this fix, I listened at 1x speed. A 3-minute briefing took 3 minutes.
+
+After converting to OGG Opus, I listen at 2x speed. Same briefing takes 90 seconds.
+
+Over a week, that's significant time saved. Plus, I can slow down to 0.5x when I need to catch details.
+
+The speed control button makes voice content practical for information-dense use cases.
+
+---
+
+## Edge cases and limitations
+
+### File size
+
+OGG Opus files are typically smaller than MP3 at comparable quality. A 2-minute voice message:
+
+- MP3 at 64kbps: ~960KB
+- OGG Opus at 48kbps: ~720KB
+
+25% smaller, better quality for speech.
+
+### Compatibility
+
+OGG Opus works across all Telegram clients (mobile, desktop, web). It's the native format for voice messages.
+
+MP3 is more universal outside Telegram, but if you're targeting Telegram specifically, Opus is the right choice.
+
+### Conversion time
+
+ffmpeg conversion is fast. A 2-minute MP3 converts in under 2 seconds on a modest server. Not a bottleneck for real-time TTS.
+
+### Quality
+
+At 48kbps, Opus is optimized for speech. Music won't sound great, but voice is clear and intelligible. If your agent narrates stories or explains concepts, 48kbps is plenty.
+
+---
+
+## Cost implications
+
+None. ffmpeg is free and open-source. OGG Opus is a royalty-free codec.
+
+If you're paying for TTS (like ElevenLabs or Azure), the conversion step adds no extra cost. It's just a local processing step.
+
+---
+
+## Alternatives considered
+
+**Why not send MP3 as a document?**
+
+You can. But documents don't have speed control either. And they don't auto-play in the chat. Users have to tap, download, open in a media player.
+
+Voice messages with speed control are the best UX for audio content in Telegram.
+
+**Why not use a different format?**
+
+Telegram's voice message system is built around OGG Opus. You could theoretically send other formats, but they won't get the same treatment.
+
+WAV files work but are huge. AAC files work but don't get speed control. MP3 files work but don't get waveforms.
+
+OGG Opus is the native, optimized format.
+
+**Why not skip TTS and use text?**
+
+Text is great for some things. But voice is better for:
+
+- Long-form narration
+- Emotional tone
+- Listening while doing other tasks
+- Accessibility
+
+If you're investing in TTS for your agent, you want the output to have full Telegram voice message features.
+
+---
+
+## Future improvements
+
+OpenClaw could add this conversion step internally. If the outbound message target is Telegram and the media type is voice, auto-convert MP3 to OGG Opus before sending.
+
+This would make the fix invisible to users. Generate TTS as usual, OpenClaw handles the rest.
+
+Until then, the ffmpeg command is a reliable manual step.
+
+---
+
+## Who this helps
+
+Anyone using:
+
+- OpenClaw with TTS on Telegram
+- Custom Telegram bots that send audio
+- Voice-first AI agents
+- Briefing bots, narration bots, educational bots
+
+If your bot sends more than a few voice messages per week, speed control matters. At 2x speed, you save half the listening time. Over months, that's hours.
+
+This fix gives your users control over how they consume voice content.
+
+---
+
+## Sources
+
+- [Telegram Bot API: sendVoice](https://core.telegram.org/bots/api#sendvoice) — official documentation
+- [ffmpeg Opus encoding guide](https://trac.ffmpeg.org/wiki/Encode/HighQualityAudio) — codec parameters
+- [Opus codec specification](https://opus-codec.org/docs/) — technical details
+- Stack Overflow discussions on Telegram voice message spectrograms — community troubleshooting
