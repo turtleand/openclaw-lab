@@ -1,8 +1,8 @@
 ---
-title: "I Asked OpenClaw to Design My Banner. Here's What Happened."
+title: "AI Image Gen vs OpenClaw + Code"
 module: "Module 1: Foundations"
 subtopic: "banner-generation-comparison"
-summary: "A real comparison: AI image generation vs. OpenClaw code generation for a Twitter/X profile banner. Same brief, two approaches, very different results."
+summary: "Same banner brief, two approaches: a standard image model vs OpenClaw generating code. The results tell you where AI actually adds value."
 status: "done"
 articles: []
 ---
@@ -40,15 +40,15 @@ Create a Twitter/X header banner (1500x500 pixels).
 
 Not bad at first glance. But look closer:
 
-- The typography is **uneven** — letter spacing is inconsistent
+- The typography is **uneven**. Letter spacing is all over the place.
 - Text is **left-aligned awkwardly** instead of properly centered
 - The italic on "Together" feels accidental, not intentional
-- The background texture is **too visible** — it competes with the text
-- The overall feel is "close but not quite" — the uncanny valley of design
+- The background texture is **too visible** and competes with the text
+- The overall feel is "close but not quite." The uncanny valley of design.
 
-This is the fundamental limitation of image generation for typography: the model understands what text *looks like* but doesn't understand typographic *rules*. Kerning, baseline alignment, optical centering — these are precise crafts, not vibes.
+This is the core limitation of image generation for typography. The model understands what text *looks like* but doesn't understand typographic *rules*. Kerning, baseline alignment, optical centering. These are precise crafts, not vibes.
 
-## Approach 2: OpenClaw code generation
+## Approach 2: OpenClaw + code
 
 I asked [OpenClaw](https://openclaw.ai/) to solve it differently. Instead of generating an image, OpenClaw wrote an HTML file:
 
@@ -116,17 +116,17 @@ await page.screenshot({ path: 'x-banner.png' });
 
 ## The lesson
 
-AI image generation is great for **creative exploration** — generating concepts, mood boards, illustrations where imperfection adds character. But for anything requiring **typographic precision** — banners, social headers, business cards, slides — code wins.
+AI image generation is great for **creative exploration**. Concepts, mood boards, illustrations where imperfection adds character. But for anything requiring **typographic precision** (banners, social headers, business cards, slides), code wins.
 
-The irony: OpenClaw *wrote the code* that generated the banner. AI wasn't removed from the process. It just operated at the right layer. Instead of generating pixels directly, OpenClaw generated the instructions (HTML/CSS) that a rendering engine turned into pixels.
+Here's the thing: OpenClaw *wrote the code* that generated the banner. AI wasn't removed from the process. It just operated at the right layer. Instead of generating pixels directly, OpenClaw generated the instructions (HTML/CSS) that a rendering engine turned into pixels.
 
 **AI at the right abstraction level** beats AI doing everything end-to-end.
 
-This is a pattern that keeps showing up: the best results come not from asking AI to do the whole job, but from finding the layer where it adds the most value and letting deterministic tools handle the rest.
+This pattern keeps showing up. The best results come not from asking AI to do the whole job, but from finding the layer where it adds the most value and letting deterministic tools handle the rest.
 
 ## Try it yourself
 
-The full HTML template is ~40 lines. Swap the text, colors, and fonts for your own brand. Use any headless browser (Playwright, Puppeteer) to screenshot it. You'll get a pixel-perfect banner in minutes.
+The full HTML template is about 40 lines. Swap the text, colors, and fonts for your own brand. Use any headless browser (Playwright, Puppeteer) to screenshot it. You'll get a pixel-perfect banner in minutes.
 
 **See the result live:** [@turtleand_world on X](https://x.com/turtleand_world)
 
