@@ -3,6 +3,7 @@
 > Practical setup guides for the OpenClaw AI assistant platform. From installation to advanced automation.
 
 ## Guides
+- [I Asked an AI to Design My Banner. Then I Built It Myself.](https://openclaw.turtleand.com/topics/banner-generation-ai-vs-code): A real comparison: AI image generation vs. code-generated graphics for a Twitter/X profile banner. Same brief, two approaches, very different results.
 - [Claude CLI Integration](https://openclaw.turtleand.com/topics/claude-cli-integration): Run Claude CLI commands through OpenClaw and monitor your Anthropic usage limits.
 - [Cron Jobs & Scheduled Automation](https://openclaw.turtleand.com/topics/cron-jobs-automation): Schedule recurring tasks, reminders, and automated check-ins with OpenClaw's built-in cron system.
 - [Delegating Development to Your Agent](https://openclaw.turtleand.com/topics/git-autonomous-development): Configure Git access so OpenClaw can develop on your behalf while you're away.

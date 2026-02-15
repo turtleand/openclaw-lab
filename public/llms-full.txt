@@ -2,6 +2,137 @@
 
 ---
 
+# I Asked an AI to Design My Banner. Then I Built It Myself.
+
+## The task
+
+I needed a banner for my [X profile](https://x.com/turtleand_world). Simple requirements:
+
+- Dark background (#0a1628) matching my website
+- "Where Humans and Technology Evolve Together" in clean typography
+- My URL underneath
+- Professional, minimal, 1500×500 pixels
+
+Two approaches. Same brief. Let's compare.
+
+## Approach 1: AI image generation
+
+I gave an established image generation model a detailed prompt:
+
+```
+Create a Twitter/X header banner (1500x500 pixels).
+
+- Background: dark navy (#0a1628)
+- Subtle circuit-board pattern in slightly lighter navy
+- Main text: "Where Humans and Technology Evolve Together"
+  - Elegant serif font, warm off-white (#e0d8c8)
+- Below: "turtleand.com" in muted gold (#D4A03A)
+- Thin gold divider line between text and URL
+- Feel: premium, minimal, professional
+```
+
+**The result:**
+
+![AI-generated banner](/images/banner-ai-generated.jpg)
+
+Not bad at first glance. But look closer:
+
+- The typography is **uneven** — letter spacing is inconsistent
+- Text is **left-aligned awkwardly** instead of properly centered
+- The italic on "Together" feels accidental, not intentional
+- The background texture is **too visible** — it competes with the text
+- The overall feel is "close but not quite" — the uncanny valley of design
+
+This is the fundamental limitation of image generation for typography: the model understands what text *looks like* but doesn't understand typographic *rules*. Kerning, baseline alignment, optical centering — these are precise crafts, not vibes.
+
+## Approach 2: Code generation
+
+My AI agent built an HTML file instead:
+
+```html
+<body style="width:1500px; height:500px; background:#0a1628">
+  <div class="container">
+    <div class="tagline">
+      Where Humans and Technology<br>
+      Evolve <em>Together</em>
+    </div>
+    <div class="divider"></div>
+    <div class="url">turtleand.com</div>
+  </div>
+</body>
+```
+
+With CSS handling the design:
+
+```css
+.tagline {
+  font-family: 'Cinzel', serif;
+  font-size: 52px;
+  color: #e0d8c8;
+  text-align: center;
+}
+.tagline em { color: #D4A03A; }
+.divider {
+  width: 120px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #D4A03A, transparent);
+}
+.url {
+  font-family: 'Inter', sans-serif;
+  font-size: 22px;
+  color: #D4A03A;
+  letter-spacing: 0.15em;
+}
+```
+
+Then rendered it to a 1500×500 PNG using a headless browser (Playwright):
+
+```javascript
+const page = await browser.newPage();
+await page.setViewportSize({ width: 1500, height: 500 });
+await page.goto('file:///path/to/banner.html');
+await page.screenshot({ path: 'x-banner.png' });
+```
+
+**The result:**
+
+![Code-generated banner](/images/banner-code-generated.png)
+
+## The comparison
+
+| Aspect | AI Image Gen | Code + Screenshot |
+|--------|:---:|:---:|
+| Typography precision | ❌ Inconsistent | ✅ Pixel-perfect |
+| Color accuracy | ~Close | ✅ Exact hex values |
+| Font matching | ❌ Approximate | ✅ Exact font (Cinzel) |
+| Centering/alignment | ❌ Off | ✅ CSS handles it |
+| Background subtlety | ❌ Too visible | ✅ Controlled opacity |
+| Time to generate | ~30 seconds | ~5 minutes |
+| Iteration speed | Slow (re-prompt) | Fast (edit CSS, re-run) |
+| Reproducibility | ❌ Different each time | ✅ Identical every time |
+
+## The lesson
+
+AI image generation is great for **creative exploration** — generating concepts, mood boards, illustrations where imperfection adds character. But for anything requiring **typographic precision** — banners, social headers, business cards, slides — code wins.
+
+The irony: I used an AI agent to *write the code* that generated the banner. The AI wasn't removed from the process — it just operated at the right layer. Instead of generating pixels directly, it generated the instructions (HTML/CSS) that a rendering engine turned into pixels.
+
+**AI at the right abstraction level** > AI doing everything end-to-end.
+
+This is a pattern that keeps showing up: the best results come not from asking AI to do the whole job, but from finding the layer where AI adds the most value and letting deterministic tools handle the rest.
+
+## Try it yourself
+
+The full HTML template is ~40 lines. Swap the text, colors, and fonts for your own brand. Use any headless browser (Playwright, Puppeteer) to screenshot it. You'll get a pixel-perfect banner in minutes.
+
+**See the result live:** [@turtleand_world on X](https://x.com/turtleand_world)
+
+---
+
+*Built with OpenClaw + Playwright. The AI wrote the code. The browser rendered it. The human approved it.*
+
+---
+
 # Claude CLI Integration
 
 ## Why integrate Claude CLI with OpenClaw?
