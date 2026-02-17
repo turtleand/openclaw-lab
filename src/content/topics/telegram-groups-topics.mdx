@@ -1,0 +1,244 @@
+---
+title: "Telegram Groups & Topics"
+module: "Module 1: Daily Workflows"
+subtopic: "telegram-groups-topics"
+summary: "Set up Telegram supergroups with Topics to isolate OpenClaw sessions by project, route cron jobs to specific topics, and keep context clean."
+status: "done"
+articles:
+  - title: "Using Telegram Groups and Topics to Organize Your OpenClaw Agent"
+    description: "Practical guide on setting up Telegram supergroups with Topics (forum mode) for OpenClaw"
+    type: "guide"
+    status: "done"
+---
+
+import { Image } from 'astro:assets';
+
+When you run OpenClaw through a single Telegram DM, everything lives in one conversation. Blog drafts. Code reviews. Daily reports. Lead research. It all mixes together. Context bleeds across domains. Finding what you need means scrolling back through unrelated messages.
+
+The fix? Telegram groups with Topics.
+
+This is how I'm running things right now. One supergroup with multiple topics, each isolated by project or workflow. OpenClaw treats each topic as a separate session with its own memory. No context pollution. No scrolling through mixed conversations.
+
+## What You Get with Topics
+
+Telegram Topics (also called Forum Mode) turn a single group into multiple threaded channels. Think Slack channels, but inside one Telegram group.
+
+For OpenClaw, each topic gets its own session key. The agent in your "News" topic has zero awareness of what's happening in "Blog/Content." Different topic, different session, different memory.
+
+Session keys look like this:
+```
+agent:main:telegram:group:-1001234567890:topic:14
+```
+
+That `:topic:14` suffix means topic isolation. OpenClaw appends it automatically when you message in a forum topic.
+
+## Step 1: Create a Telegram Supergroup
+
+Open Telegram. Tap "New Group." Add yourself (and maybe your bot, but you can add it later). Name it something useful.
+
+Telegram will convert it to a supergroup automatically when you enable certain features. If you want to force the conversion, make the group public for a moment or adjust history visibility settings.
+
+## Step 2: Enable Topics
+
+Go to Group Settings → Edit → Topics (right below Reactions).
+
+Toggle it on.
+
+Your flat group chat just turned into a forum. The "General" topic appears automatically. That's topic ID 1, and Telegram handles it differently under the hood (OpenClaw manages this, you don't need to worry about it).
+
+## Step 3: Add Your OpenClaw Bot as Admin
+
+Add your bot to the group. Grant it admin permissions. It needs message access to respond within topics.
+
+Two privacy considerations here:
+
+**Privacy mode:** Telegram bots default to Privacy Mode, which limits what group messages they see. Either disable privacy mode via BotFather (`/setprivacy` → Disable) or make the bot an admin. Admin bypasses privacy mode entirely.
+
+**Activation mode:** You can require @mentions or allow the bot to respond to all messages. I use mention-only for most topics. Keeps it quiet unless I explicitly ask for something.
+
+## Step 4: Get the Group ID
+
+Your agent needs the numeric chat ID to configure access. Group IDs are always negative numbers like `-1001234567890`.
+
+### The easy way: @GetIDsBot
+
+Send any message in your group. Forward it to `@GetIDsBot`. The bot replies with the chat ID.
+
+### The alternative: Check logs
+
+Send a message in the group. Then ask your agent in DM: "Check your logs for the chat ID from the message I just sent."
+
+The agent can find `chat.id` in the incoming message payload. This avoids third-party bots if you prefer.
+
+## Step 5: Configure OpenClaw
+
+Tell your agent in DM:
+
+"Add this Telegram group: -1001234567890"
+
+Behind the scenes, the agent updates `openclaw.json`:
+
+```json
+{
+  "channels": {
+    "telegram": {
+      "groups": {
+        "-1001234567890": {
+          "requireMention": true
+        }
+      }
+    }
+  }
+}
+```
+
+OpenClaw uses `groupPolicy: "allowlist"` by default. Only groups explicitly listed here are allowed. This is a security feature. Don't set it to `"open"` unless you truly need anyone to add your bot to any group.
+
+The agent will restart the gateway to apply changes and confirm when ready.
+
+## Step 6: Create Your Topics
+
+Now create topics that match your workflow. I use:
+
+- **News** — automated news digests, research summaries
+- **Blog/Content** — drafts, editorial planning, content calendars
+- **Discussion** — quick questions, brainstorming, general back-and-forth
+- **Ecosystem/PRs** — PR notifications, build status, GitHub updates
+
+Each topic becomes a dedicated workspace. When you open the News topic, you see only news-related conversation. No PR updates. No blog drafts. Just news.
+
+## Routing Cron Jobs to Specific Topics
+
+This is where Topics shine for automation.
+
+You can configure OpenClaw cron jobs to deliver output to specific topics using the `threadId` parameter.
+
+Example cron config:
+
+```json
+{
+  "cron": {
+    "jobs": {
+      "daily-news": {
+        "schedule": "0 9 * * *",
+        "agent": "main",
+        "prompt": "Summarize today's top tech news",
+        "deliverTo": {
+          "channel": "telegram",
+          "target": "-1001234567890",
+          "threadId": "14"
+        }
+      }
+    }
+  }
+}
+```
+
+That `threadId: "14"` sends output straight to topic 14 (maybe that's your News topic). Everything lands exactly where it belongs.
+
+Get the topic ID the same way you got the group ID. Send a message in the topic, forward it to @GetIDsBot. The bot shows both the chat ID and the message thread ID.
+
+Or ask your agent to check logs for `message_thread_id`.
+
+## Configuring Per-Topic Behavior
+
+You can set different settings for each topic. Different mention rules. Different allowlists. Even different system prompts.
+
+Example:
+
+```json
+{
+  "channels": {
+    "telegram": {
+      "groups": {
+        "-1001234567890": {
+          "requireMention": true,
+          "topics": {
+            "14": {
+              "requireMention": false,
+              "systemPrompt": "You are a news analyst. Summarize events concisely."
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Topic 14 responds to all messages without requiring @mention, and it uses a custom system prompt scoped to that topic.
+
+## DM vs Topics: When to Use Each
+
+I settled on this division after running Topics for a while:
+
+**Use DMs for:**
+- Complex, multi-step workflows that need deep context
+- Sensitive or private tasks
+- Anything that benefits from long-term memory across sessions
+
+**Use Topics for:**
+- Categorized, isolated conversations (news, blog, PRs, dev)
+- Receiving cron outputs in the right place
+- Quick, domain-specific requests
+- Team-visible work (if you add team members to the group)
+
+DM is your private power session with full memory. Topics are lean, focused workspaces that stay clean.
+
+## The General Topic (ID 1)
+
+Telegram's "General" topic has ID 1. It's special. When OpenClaw sends messages to topic 1, it omits `message_thread_id` in the API call because Telegram rejects `sendMessage(...thread_id=1)`.
+
+Typing indicators still include `message_thread_id` for General. OpenClaw handles this automatically. You don't need to do anything special.
+
+## Token Considerations
+
+More topics means more sessions. Each session consumes tokens independently.
+
+But here's the counterpoint: each individual session is leaner. A single mega-session that handles news, blog, dev, and PRs accumulates a massive context window full of noise. That bloated context wastes tokens on irrelevant information and degrades response quality.
+
+With isolated topics, each session carries only the context it needs. Better responses with less noise, even if you're running more sessions in parallel.
+
+Start with 3-4 topics for your most common workflows. Add more only when you genuinely need them. Use General for edge cases.
+
+## Limitations and Gotchas
+
+**Reactions don't route to topics.** Telegram's `MessageReactionUpdated` event doesn't include `message_thread_id`. Reactions in forum groups route to the group-level session (or the General topic session, `:topic:1`), not the exact originating topic.
+
+**Privacy mode toggle requires re-adding the bot.** If you toggle BotFather's `/setprivacy` setting, remove and re-add the bot in the group for Telegram to apply the change.
+
+**Allowlist confusion.** There's `groupPolicy` (which groups are allowed) and `groupAllowFrom` (which senders are allowed in groups). Two separate controls. If the bot ignores messages, check both.
+
+## Making It Team-Ready
+
+Topics live inside a Telegram group. You can add team members who can:
+
+- See AI outputs in real-time without accessing your private DM
+- Contribute to topic conversations (the AI responds to anyone in the group)
+- Review cron outputs relevant to their domain
+
+This turns OpenClaw from a personal assistant into a team-accessible AI workspace. No extra tooling. Just Telegram and Topics.
+
+## What This Looks Like Day-to-Day
+
+Morning routine:
+
+1. Open the News topic. Overnight cron delivered a digest. Scan it in 30 seconds.
+2. Switch to Blog/Content. Ask OpenClaw to outline a post. Clean session, no bleed from news.
+3. Check Ecosystem/PRs. See build status and PR notifications from automated jobs.
+
+All in one Telegram group. No app switching. No context management. No session confusion.
+
+## Resources
+
+- [OpenClaw Telegram documentation](https://docs.openclaw.ai/channels/telegram) — Official docs on forum topics, session isolation, and config options
+- [GitHub Issue #5737](https://github.com/openclaw/openclaw/issues/5737) — Feature request for `createForumTopic` support
+- [OpenClaw Session documentation](https://docs.openclaw.ai/concepts/session) — How session keys work with topics
+- [Stack Junkie: Using Telegram Groups with OpenClaw](https://www.stack-junkie.com/blog/using-telegram-groups-with-openclaw) — Practical guide on group setup
+- [ChatMaxima: Telegram Topics for AI Workflows](https://chatmaxima.com/blog/openclaw-telegram-topics-organize-ai-workflows/) — Real-world workflow patterns
+
+## Bottom Line
+
+Telegram Topics turn a single conversation into organized, isolated workspaces. Each topic is a clean session. Cron jobs land exactly where they belong. Context stays focused.
+
+If you're already running OpenClaw on Telegram, this is a 10-minute upgrade that changes how you work with your agent.
