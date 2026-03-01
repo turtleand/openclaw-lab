@@ -1,0 +1,74 @@
+---
+title: "Cost tracking for AI agent operations"
+module: "Module 1: Foundations"
+subtopic: "cost-tracking-ai-agents"
+summary: "How to monitor and optimize spending when your AI agent runs on pay-per-token APIs."
+status: "done"
+articles: []
+---
+
+## From unlimited to metered
+
+On a subscription plan, you don't think about cost per task. You think about whether you're getting enough value from the monthly fee. The mental model is simple: use more, get more value.
+
+Pay-per-token changes everything. Every sub-agent spawn, every cron job, every conversation turn has a price. Not a big price, usually fractions of a cent. But fractions of a cent multiplied by hundreds of daily operations adds up to real money.
+
+The shift from subscription to API billing forced me to understand something I'd been ignoring: which tasks actually consumed the most resources, and whether that spending matched the value they delivered.
+
+## Where the money goes
+
+Token-based pricing has two sides: input tokens (what you send to the model) and output tokens (what the model generates). Output tokens are typically 5-8x more expensive than input tokens. A task that generates long responses costs more than one that gives short answers, even if they process the same input.
+
+In my setup, the cost distribution looked like this:
+
+**Interactive conversation** accounted for the majority of spend. Every message I sent, plus the full conversation history that gets resent for context, plus the response. Long conversations with lots of back-and-forth burn through tokens fast.
+
+**Scheduled tasks** were surprisingly cheap individually but numerous. 14 cron jobs, some running daily, some multiple times per day. Each one small, but the aggregate mattered.
+
+**Sub-agents** varied wildly. A simple formatting task might cost a fraction of a cent. A deep research task with web search and multi-step reasoning could cost 10-50x more.
+
+## The right-sizing revelation
+
+The biggest cost optimization wasn't a clever technical trick. It was asking "does this task actually need the expensive model?"
+
+When I audited my scheduled tasks during migration, I found that 10 out of 14 only needed the cheapest model tier. Simple coaching templates, backup scripts, reminder messages. They'd been running on the most capable (and most expensive) model because that was the default.
+
+Reassigning those 10 tasks to the cheap model cut projected cron costs by roughly 70%. The work quality didn't change because those tasks never needed sophisticated reasoning.
+
+## Three levels of cost visibility
+
+**Level 1: Provider dashboard.** Most API providers offer a billing dashboard showing daily and monthly spend. This is your primary source of truth. Bookmark it. Check it weekly at minimum. Set budget alerts so you get emailed before surprises happen.
+
+**Level 2: Agent-level estimation.** Your agent framework likely reports token counts per session and per sub-agent. Multiply these by published per-token rates to estimate costs. This is approximate (thinking tokens and cached tokens may price differently) but directional. Good enough for spotting runaway tasks.
+
+**Level 3: Programmatic queries.** For serious monitoring, set up automated cost tracking. A service account with read-only billing access can query actual spend and post daily reports. This is overkill at low volumes but essential if your agent usage grows.
+
+## Budget alerts are your safety net
+
+Set a monthly budget with threshold alerts. My setup uses thresholds at 25%, 50%, 100%, 150%, and 200% of the monthly budget. This catches two scenarios:
+
+**Gradual creep.** You add more tasks, enable more sub-agents, have longer conversations. Spending rises slowly until the 50% alert fires halfway through the month and you realize you're on pace to exceed your budget.
+
+**Runaway tasks.** A bug causes a cron to loop, or a sub-agent enters an infinite retry cycle. The budget alert catches the spike before it becomes painful.
+
+Important: budget alerts notify but don't stop spending. Your API keeps working past 100%. If you need a hard cap, set quota limits separately in your provider's console.
+
+## Practical optimization tactics
+
+**Right-size every task.** Use the cheapest model that produces acceptable results. Most scheduled tasks and simple generations don't need your most powerful model.
+
+**Set timeouts on sub-agents.** A hung sub-agent that runs for 30 minutes on an expensive model wastes real money. Timeouts cap the damage.
+
+**Cache aggressively.** If your framework supports prompt caching, long system prompts and repeated context get cached and priced at a discount. This compounds for agents with large instruction sets.
+
+**Monitor token counts, not just cost.** A sudden spike in token usage tells you something changed before the bill arrives. Track it weekly.
+
+**Review monthly.** Which tasks cost the most? Are they delivering proportional value? Could any of them run on a cheaper model or run less frequently? A monthly review takes 15 minutes and can save significant money.
+
+## The mental shift
+
+The real change isn't about monitoring dashboards. It's about internalizing that every AI operation has a cost, and that cost should be proportional to the value delivered.
+
+A deep strategic analysis that shapes your next quarter? Worth the premium model. A daily reminder to drink water? Use the cheapest option available.
+
+Once you internalize this, you stop defaulting everything to the most expensive model and start designing with cost efficiency as a first-class concern. Your agent doesn't get worse. It gets more sustainable.

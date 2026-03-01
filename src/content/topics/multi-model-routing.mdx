@@ -1,0 +1,78 @@
+---
+title: "Setting up multi-model routing"
+module: "Module 1: Foundations"
+subtopic: "multi-model-routing"
+summary: "How to use different AI models for different tasks instead of running everything on one."
+status: "done"
+articles: []
+---
+
+## One model for everything is expensive and unnecessary
+
+When I started with my AI agent, every task ran on the same model. The morning briefing, the code review, the simple date check, the deep strategic analysis. All the same. Like hiring a senior architect to also answer the phone and sort the mail.
+
+The moment I switched to multi-model routing, two things happened. Cost dropped significantly. And quality actually improved, because each task got the model best suited for it.
+
+## The brain-as-router pattern
+
+The core idea is simple. Your main agent, the "brain," doesn't do the work itself. It classifies incoming tasks and delegates them to the right model.
+
+Think of it as a dispatcher. A message comes in. The brain reads it, decides what kind of work it requires, and spawns a sub-agent on the appropriate model. The brain stays free for the next message. The worker does the actual thinking.
+
+Three categories cover most use cases:
+
+**Reasoning model.** For research, strategy, article writing, deep analysis. This is your most capable (and expensive) model. Use it when the task requires genuine synthesis, multi-step reasoning, or creative output.
+
+**Code model.** For editing files, creating pull requests, running builds, debugging. Some providers offer models specifically optimized for tool use and code generation. They're faster at file operations and produce more reliable structured output.
+
+**Fast model.** For formatting, simple lookups, date checks, notification text, anything you could explain in one sentence. These models are 10-100x cheaper and respond almost instantly.
+
+## Two triggers for spawning
+
+The brain decides to delegate based on two questions:
+
+**Would this take more than 30 seconds?** If yes, spawn it. This keeps the main conversation responsive. You never want the brain frozen for 2 minutes while it runs a build.
+
+**Would a different model do this better?** If yes, spawn it, even if the task is fast. A code-optimized model writing a pull request will produce better results than a general reasoning model doing the same thing in half the time.
+
+If either answer is yes, the brain delegates. Otherwise it handles the task inline. Simple replies, memory updates, and relaying results stay with the brain.
+
+## What the brain keeps for itself
+
+The brain's job is narrow on purpose:
+
+- Conversation with the user
+- Reading and writing memory files
+- Managing scheduled tasks
+- Relaying sub-agent results
+- Quick lookups and status checks
+- Deciding which model handles what
+
+Everything else gets dispatched. This separation means the brain can be a cheaper, faster model. It doesn't need to be the most powerful model in your stack. It needs to be good at classification and routing.
+
+## The fallback chain
+
+Models go down. APIs return errors. Rate limits get hit. A fallback chain handles this automatically.
+
+The structure is simple: primary model, then first fallback, then second fallback. If the primary fails, the system tries the next one. If that fails, it tries the last resort.
+
+In practice, this means your agent never goes fully dark. The quality might degrade temporarily if it falls back to a simpler model, but the lights stay on.
+
+## Right-sizing is the real optimization
+
+The biggest win from multi-model routing isn't the architecture. It's the forced audit of what each task actually needs.
+
+When I migrated my scheduled tasks, I found that 10 out of 14 only needed the cheapest model. Simple template-based coaching messages, backup scripts, content goal checks. They'd been running on the most expensive model for weeks because I never questioned the default.
+
+Right-sizing those tasks cut my projected costs by roughly 70%. The expensive model runs 4 tasks. The cheap model runs 10. Each one gets exactly what it needs.
+
+## Getting started
+
+You don't need to implement everything at once:
+
+1. **Start with one model.** Get your agent working.
+2. **Add a cheap model for simple tasks.** Redirect anything template-based or formulaic.
+3. **Add a specialized model for code.** If your agent edits files or creates PRs, a code-optimized model pays for itself in quality.
+4. **Build the routing logic.** A simple rubric in your agent's instructions is enough. "If the task involves code, use the code model. If it's simple, use the fast model. Everything else goes to the reasoning model."
+
+The pattern scales naturally. As new models become available, you slot them into the right category. No rewrites. Just config changes.

@@ -1,0 +1,75 @@
+---
+title: "Migrating cron jobs to a new model provider"
+module: "Module 1: Foundations"
+subtopic: "migrating-cron-jobs"
+summary: "How to audit, classify, and migrate scheduled AI tasks when switching providers."
+status: "done"
+articles: []
+---
+
+## 23 crons, one provider, zero fallbacks
+
+My agent ran 23 scheduled tasks. Morning briefings, security scans, content reminders, news research, code reviews, backup scripts. All of them hardcoded to a single model. When that provider's subscription ended, every single one of them would stop working.
+
+The migration took an afternoon. But the audit it forced was worth more than the migration itself.
+
+## Step 1: Inventory everything
+
+Before changing anything, I needed to see what I had. A simple list: task name, schedule, which model it uses, what it does.
+
+The surprise wasn't the count. It was the uniformity. Every task, from a simple "remind me to check email" to a complex "scan 8 websites and generate a visual report," ran on the same expensive model. Nobody had ever questioned it.
+
+## Step 2: Classify by complexity
+
+Not every task needs the same model. I sorted my 23 crons into three buckets:
+
+**Simple tasks (needed the cheapest model).** Template-based coaching messages, backup scripts, content goal checks, date reminders, formatting jobs. If the task could be explained in one sentence, it went here.
+
+**Research tasks (needed the reasoning model).** News scanning, strategic analysis, SEO reviews, weekly evidence compilation. These tasks genuinely benefit from strong reasoning, web search, and synthesis.
+
+**Code tasks (needed the code model).** Anything that edits files, runs builds, or interacts with git. These tasks benefit from models optimized for tool use.
+
+The result: 10 simple, 4 research, 2 code, and 7 that turned out to be unnecessary.
+
+## Step 3: Cut the dead weight
+
+The migration forced me to ask "do I actually need this?" for every task. Seven crons got deleted:
+
+- A 4-stage overnight pipeline that generated 700+ brainstorm ideas nobody reviewed
+- Two quota tracking tasks for a subscription I was leaving
+- An about-page improvement scanner that ran daily but never produced actionable results
+- An expired one-shot reminder
+
+Going from 23 to 14 tasks wasn't a loss. It was cleanup that should have happened months ago. Each deleted cron was consuming API tokens, context window space, and my attention when it delivered results I ignored.
+
+## Step 4: Update model references
+
+With the classification done, the actual migration was mechanical. For each remaining cron, I changed the model reference from the old provider to the new one. Most frameworks store this as a simple field in the task config.
+
+The tricky part: some tasks targeted my "main" session (they'd run in the brain's context using whatever model the brain was on). Others ran in isolated sessions with their own model override. The isolated ones were easy to migrate. The main-session ones needed to be converted to isolated sessions with explicit model assignments, so they wouldn't depend on whatever the brain happened to be running.
+
+After conversion, every single cron had an explicit model assignment. No inheritance, no defaults, no surprises.
+
+## Step 5: Verify
+
+I ran each cron manually once to confirm it worked on the new provider. Two of the 14 had issues: the news scanning crons were erroring due to an unrelated file conflict, not a model problem. Everything else worked on the first try.
+
+## What I learned
+
+**Over-provisioning is the default.** When you create a task, you assign whatever model you're using. You never go back and right-size it. Migration forces that conversation.
+
+**Dead tasks accumulate silently.** Without a forcing function, old crons just keep running. They consume tokens and attention without delivering value. A periodic audit (or a migration) cleans them out.
+
+**Explicit is better than inherited.** Every task should declare which model it uses. Inheriting from the brain model means a model switch can silently change behavior across all your tasks. That's a fragility you don't want.
+
+**The migration itself is fast.** Once classified, updating 14 crons took maybe 20 minutes. The thinking about what each task actually needs took longer than the doing. Which means the real value wasn't in the migration. It was in the audit.
+
+## Your migration checklist
+
+1. List all scheduled tasks with their current model
+2. Classify each as simple, research, or code
+3. Delete anything you haven't looked at in 2 weeks
+4. Assign the cheapest appropriate model to each
+5. Convert inherited-model tasks to explicit assignments
+6. Test each one manually
+7. Set a reminder to re-audit in 3 months

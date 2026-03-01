@@ -1,0 +1,65 @@
+---
+title: "Why your AI agent should never depend on one provider"
+module: "Module 1: Foundations"
+subtopic: "model-provider-independence"
+summary: "What happens when your only model provider disappears, and how to design for it."
+status: "done"
+articles: []
+---
+
+## The subscription email
+
+I got the email on a Thursday. My AI subscription was ending. The one that powered everything: my always-on agent, 23 scheduled tasks, voice transcription routing, daily briefings, code reviews. All of it ran through a single provider's API.
+
+I had 3 days to migrate or go dark.
+
+The panic lasted about 20 minutes. Then I realized something. The migration itself was going to be easy. The architecture was already right. What made it scary wasn't the technical work. It was the sudden awareness of how much I'd built on top of a single dependency.
+
+## The real risk isn't technical
+
+Switching models is straightforward. You change a config value, restart a service, and test. The hard part is everything around it.
+
+Your prompts are tuned to one model's personality. Your cost assumptions are built around one pricing structure. Your scheduled tasks reference specific model names. Your sub-agents expect certain response formats. And your muscle memory as a user is calibrated to one model's strengths and blind spots.
+
+None of that transfers automatically.
+
+## What provider independence actually means
+
+It doesn't mean running everything on every provider simultaneously. That's wasteful and unnecessary. It means three things.
+
+**First, your architecture should treat models as pluggable components.** The agent framework talks to an abstraction layer. The abstraction layer talks to a provider. Swapping providers means changing config, not rewriting code.
+
+**Second, your prompts should be model-agnostic.** If your prompts only work because of one specific model's quirks, you've built a dependency. Good prompts work across models because they're clear about what they want, not because they exploit a particular model's tendencies.
+
+**Third, you should have a migration checklist ready.** Not because you'll use it often, but because when you need it, you'll need it fast. What config values reference provider names? What scheduled tasks hardcode a model? What workflows assume a specific context window size?
+
+## The migration checklist
+
+When the moment came, I needed to do four things:
+
+1. **Add the new provider's API key.** Store it securely, verify it works with a simple test call.
+
+2. **Map existing tasks to new models.** Not every task needs the most powerful model. I discovered that most of my 23 scheduled tasks were running on the most expensive model when a cheaper one would have been fine. The migration forced me to right-size everything.
+
+3. **Update the default model and fallback chain.** Primary model for the brain, cheaper model for simple tasks, and a fallback if the primary fails. Three layers of resilience.
+
+4. **Restart and verify.** The whole switchover took less than an afternoon. Most of that time was spent on optimization, not survival.
+
+## The lesson that sticks
+
+The migration wasn't the hard part. The hard part was the 3 months before it, when I was building without thinking about portability. Every prompt I wrote, every cron I created, every workflow I designed could have been provider-agnostic from day one. Instead, I had to retrofit it all in a weekend.
+
+The architecture was fine. The habits weren't.
+
+Build your agent so that the model is the easiest part to replace. Your context, your prompts, your workflows, your memory system: those are the real assets. The model is just the engine. Engines get swapped.
+
+## What to do now
+
+Before your hand is forced:
+
+- **Audit your config.** How many places reference a specific provider or model name? Each one is a migration point.
+- **Test a second provider.** Even if you don't use it daily. Knowing it works removes the panic.
+- **Separate your context from your model.** If your agent's memory, personality, and tools are all stored in portable files, migration is just pointing a new model at the same context.
+- **Document your model assumptions.** What context window size do you rely on? What pricing are your cost estimates based on? Write it down so future-you can update it quickly.
+
+The goal isn't to avoid depending on AI providers. It's to depend on the pattern, not the name.
