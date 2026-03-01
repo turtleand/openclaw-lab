@@ -1,0 +1,84 @@
+---
+title: "Sub-agent reliability: timeouts, monitoring, and recovery"
+module: "Module 1: Foundations"
+subtopic: "sub-agent-reliability"
+summary: "What happens when a sub-agent hangs, and the three-layer system to handle it."
+status: "done"
+articles: []
+---
+
+## My first sub-agent on the new provider hung for 21 minutes
+
+I'd just migrated to a new model provider. Everything looked fine. I spawned a sub-agent for a research task with "high thinking" mode. It started processing. Tokens were flowing.
+
+Then the tokens stopped. The sub-agent sat at 21,634 tokens for 9 minutes. No progress. No error. No completion message. Just silence.
+
+I didn't notice until someone asked "what happened with that task?" That gap between "task spawned" and "someone asks about it" is where sub-agents go to die.
+
+## How sub-agent completion normally works
+
+Most agent frameworks use a push-based model. You spawn a sub-agent. It runs in its own session. When it finishes, the framework sends a completion message back to the parent. The parent reads the result and relays it.
+
+This is elegant and efficient. Zero polling. Zero wasted API calls. The framework handles the plumbing.
+
+But push-based means: if the sub-agent never finishes, the parent never gets told. The task just sits there. No alarm. No timeout. Nothing, unless you go looking.
+
+## Three layers of protection
+
+After that first incident, I built a three-layer system. Each layer catches what the previous one misses.
+
+### Layer 1: Mandatory timeouts
+
+Every sub-agent spawn gets a hard timeout. The framework enforces it. If the sub-agent doesn't complete within the window, it gets killed and the parent gets a failure notification.
+
+The timeout values depend on the task type:
+
+- Simple formatting tasks: 2 minutes
+- Code editing and builds: 5 minutes
+- Research and article writing: 10 minutes
+- Deep reasoning tasks: 15 minutes
+- Custom (documented): up to 30 minutes
+
+The key rule: no sub-agent spawns without a timeout. No exceptions. If a task legitimately needs more than the default, you set a custom timeout and document why.
+
+### Layer 2: Heartbeat sweep (detection only)
+
+Periodic health checks scan for suspicious sub-agents. A sub-agent is suspicious when two conditions are both true: it's been running longer than expected, AND its token count is frozen.
+
+If tokens are still climbing, the task is alive. Leave it alone. A legitimately complex reasoning task might run for 12 minutes with steadily increasing tokens. That's healthy.
+
+The critical design decision: **the sweep never kills anything.** It only detects and alerts. The timeout from Layer 1 handles termination. The sweep provides visibility.
+
+Why detection-only? Because the sweep could fire 30 seconds after a spawn. If it auto-killed, it would destroy a perfectly healthy task that just started. Separation of concerns: the timeout enforces, the sweep observes.
+
+### Layer 3: Recovery protocol
+
+When a sub-agent dies (from timeout, manual kill, or crash), don't blindly re-spawn the same task from scratch. Check what was accomplished first.
+
+The recovery protocol has four steps:
+
+**Check the transcript.** Most frameworks let you pull the full history of a sub-agent's session. This shows every tool call, every file written, every error encountered. In my first incident, the transcript revealed the exact failure: a connection drop mid-response, partial recovery, then a hung API call.
+
+**Check for saved artifacts.** The sub-agent might have written files to disk before dying. In my case, the research task had saved its complete 120-line analysis file before the hang. The work was done. Re-spawning would have duplicated effort.
+
+**Decide the action.** Four scenarios:
+- Work fully completed but session hung? Don't re-spawn. Just read the file.
+- Partial work saved? Re-spawn with context: "Continue from where the previous attempt stopped."
+- Nothing saved, clean failure? Re-spawn the original task.
+- Failed twice? Break the task into smaller pieces or escalate.
+
+**Include recovery context.** When re-spawning, tell the new sub-agent what the previous one accomplished. "The last attempt completed steps 1-3 and saved file X. Pick up from step 4."
+
+## The principle
+
+Every sub-agent's work product has value, even from failed runs. The plan consolidation incident proved this perfectly. The hung sub-agent had already saved the complete analysis to disk. Without the recovery protocol, I would have wasted 10 minutes regenerating the same work.
+
+Check before you re-spawn. Resume, don't restart.
+
+## Implementation checklist
+
+1. Add mandatory timeouts to every sub-agent spawn in your agent instructions
+2. Create a timeout table by task type
+3. Add a health check to your periodic maintenance routine
+4. Build a recovery step that checks transcripts and artifacts before re-spawning
+5. Log incidents for pattern detection (is one model failing more than others?)
