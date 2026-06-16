@@ -5,13 +5,14 @@ import { getCollection } from 'astro:content';
 export async function getStaticPaths() {
   const topics = await getCollection('topics');
   return topics.map((topic) => ({
-    params: { slug: topic.slug },
+    params: { slug: topic.id },
     props: { topic },
   }));
 }
 
 const { topic } = Astro.props;
-const { Content } = await topic.render();
+const { render } = await import('astro:content');
+const { Content } = await render(topic);
 
 function getStatusBadge(status: string) {
   switch (status) {
@@ -31,7 +32,7 @@ const status = getStatusBadge(topic.data.status);
     "headline": topic.data.title,
     "description": topic.data.summary,
     "author": { "@type": "Person", "name": "Turtleand", "url": "https://turtleand.com" },
-    "url": `https://openclaw.turtleand.com/topics/${topic.slug}`
+    "url": `https://openclaw.turtleand.com/topics/${topic.id}`
   })} />
   <article class="py-12">
     <div class="container">

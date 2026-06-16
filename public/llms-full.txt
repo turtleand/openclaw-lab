@@ -2,7 +2,7 @@
 
 ---
 
-# I Asked an AI to Design My Banner. Then I Built It Myself.
+# AI Image Gen vs OpenClaw + Code
 
 ## The task
 
@@ -17,7 +17,7 @@ Two approaches. Same brief. Let's compare.
 
 ## Approach 1: AI image generation
 
-I gave an established image generation model a detailed prompt:
+I gave a standard image generation model a detailed prompt:
 
 ```
 Create a Twitter/X header banner (1500x500 pixels).
@@ -37,17 +37,17 @@ Create a Twitter/X header banner (1500x500 pixels).
 
 Not bad at first glance. But look closer:
 
-- The typography is **uneven** — letter spacing is inconsistent
+- The typography is **uneven**. Letter spacing is all over the place.
 - Text is **left-aligned awkwardly** instead of properly centered
 - The italic on "Together" feels accidental, not intentional
-- The background texture is **too visible** — it competes with the text
-- The overall feel is "close but not quite" — the uncanny valley of design
+- The background texture is **too visible** and competes with the text
+- The overall feel is "close but not quite." The uncanny valley of design.
 
-This is the fundamental limitation of image generation for typography: the model understands what text *looks like* but doesn't understand typographic *rules*. Kerning, baseline alignment, optical centering — these are precise crafts, not vibes.
+This is the core limitation of image generation for typography. The model understands what text *looks like* but doesn't understand typographic *rules*. Kerning, baseline alignment, optical centering. These are precise crafts, not vibes.
 
-## Approach 2: Code generation
+## Approach 2: OpenClaw + code
 
-My AI agent built an HTML file instead:
+I asked [OpenClaw](https://openclaw.ai/) to solve it differently. Instead of generating an image, OpenClaw wrote an HTML file:
 
 ```html
 <body style="width:1500px; height:500px; background:#0a1628">
@@ -85,7 +85,7 @@ With CSS handling the design:
 }
 ```
 
-Then rendered it to a 1500×500 PNG using a headless browser (Playwright):
+Then OpenClaw rendered it to a 1500×500 PNG using a headless browser (Playwright):
 
 ```javascript
 const page = await browser.newPage();
@@ -100,7 +100,7 @@ await page.screenshot({ path: 'x-banner.png' });
 
 ## The comparison
 
-| Aspect | AI Image Gen | Code + Screenshot |
+| Aspect | AI Image Gen | OpenClaw + Code |
 |--------|:---:|:---:|
 | Typography precision | ❌ Inconsistent | ✅ Pixel-perfect |
 | Color accuracy | ~Close | ✅ Exact hex values |
@@ -108,28 +108,28 @@ await page.screenshot({ path: 'x-banner.png' });
 | Centering/alignment | ❌ Off | ✅ CSS handles it |
 | Background subtlety | ❌ Too visible | ✅ Controlled opacity |
 | Time to generate | ~30 seconds | ~5 minutes |
-| Iteration speed | Slow (re-prompt) | Fast (edit CSS, re-run) |
+| Iteration speed | Slow (re-prompt) | Fast (OpenClaw edits CSS, re-runs) |
 | Reproducibility | ❌ Different each time | ✅ Identical every time |
 
 ## The lesson
 
-AI image generation is great for **creative exploration** — generating concepts, mood boards, illustrations where imperfection adds character. But for anything requiring **typographic precision** — banners, social headers, business cards, slides — code wins.
+AI image generation is great for **creative exploration**. Concepts, mood boards, illustrations where imperfection adds character. But for anything requiring **typographic precision** (banners, social headers, business cards, slides), code wins.
 
-The irony: I used an AI agent to *write the code* that generated the banner. The AI wasn't removed from the process — it just operated at the right layer. Instead of generating pixels directly, it generated the instructions (HTML/CSS) that a rendering engine turned into pixels.
+Here's the thing: OpenClaw *wrote the code* that generated the banner. AI wasn't removed from the process. It just operated at the right layer. Instead of generating pixels directly, OpenClaw generated the instructions (HTML/CSS) that a rendering engine turned into pixels.
 
-**AI at the right abstraction level** > AI doing everything end-to-end.
+**AI at the right abstraction level** beats AI doing everything end-to-end.
 
-This is a pattern that keeps showing up: the best results come not from asking AI to do the whole job, but from finding the layer where AI adds the most value and letting deterministic tools handle the rest.
+This pattern keeps showing up. The best results come not from asking AI to do the whole job, but from finding the layer where it adds the most value and letting deterministic tools handle the rest.
 
 ## Try it yourself
 
-The full HTML template is ~40 lines. Swap the text, colors, and fonts for your own brand. Use any headless browser (Playwright, Puppeteer) to screenshot it. You'll get a pixel-perfect banner in minutes.
+The full HTML template is about 40 lines. Swap the text, colors, and fonts for your own brand. Use any headless browser (Playwright, Puppeteer) to screenshot it. You'll get a pixel-perfect banner in minutes.
 
 **See the result live:** [@turtleand_world on X](https://x.com/turtleand_world)
 
 ---
 
-*Built with OpenClaw + Playwright. The AI wrote the code. The browser rendered it. The human approved it.*
+*Built with OpenClaw + Playwright. OpenClaw wrote the code. The browser rendered it. I just approved it.*
 
 ---
 
@@ -374,6 +374,76 @@ You can also set up a cron job to get usage reports at specific times:
 - [Claude CLI Documentation](https://docs.anthropic.com/en/docs/claude-code)
 - [tmux Manual](https://man7.org/linux/man-pages/man1/tmux.1.html)
 - [OpenClaw Documentation](https://docs.openclaw.ai/automation/cron-jobs#cron-jobs)
+
+---
+
+# Cost tracking for AI agent operations
+
+## From unlimited to metered
+
+On a subscription plan, you don't think about cost per task. You think about whether you're getting enough value from the monthly fee. The mental model is simple: use more, get more value.
+
+Pay-per-token changes everything. Every sub-agent spawn, every cron job, every conversation turn has a price. Not a big price, usually fractions of a cent. But fractions of a cent multiplied by hundreds of daily operations adds up to real money.
+
+The shift from subscription to API billing forced me to understand something I'd been ignoring: which tasks actually consumed the most resources, and whether that spending matched the value they delivered.
+
+## Where the money goes
+
+Token-based pricing has two sides: input tokens (what you send to the model) and output tokens (what the model generates). Output tokens are typically 5-8x more expensive than input tokens. A task that generates long responses costs more than one that gives short answers, even if they process the same input.
+
+In my setup, the cost distribution looked like this:
+
+**Interactive conversation** accounted for the majority of spend. Every message I sent, plus the full conversation history that gets resent for context, plus the response. Long conversations with lots of back-and-forth burn through tokens fast.
+
+**Scheduled tasks** were surprisingly cheap individually but numerous. 14 cron jobs, some running daily, some multiple times per day. Each one small, but the aggregate mattered.
+
+**Sub-agents** varied wildly. A simple formatting task might cost a fraction of a cent. A deep research task with web search and multi-step reasoning could cost 10-50x more.
+
+## The right-sizing revelation
+
+The biggest cost optimization wasn't a clever technical trick. It was asking "does this task actually need the expensive model?"
+
+When I audited my scheduled tasks during migration, I found that 10 out of 14 only needed the cheapest model tier. Simple coaching templates, backup scripts, reminder messages. They'd been running on the most capable (and most expensive) model because that was the default.
+
+Reassigning those 10 tasks to the cheap model cut projected cron costs by roughly 70%. The work quality didn't change because those tasks never needed sophisticated reasoning.
+
+## Three levels of cost visibility
+
+**Level 1: Provider dashboard.** Most API providers offer a billing dashboard showing daily and monthly spend. This is your primary source of truth. Bookmark it. Check it weekly at minimum. Set budget alerts so you get emailed before surprises happen.
+
+**Level 2: Agent-level estimation.** Your agent framework likely reports token counts per session and per sub-agent. Multiply these by published per-token rates to estimate costs. This is approximate (thinking tokens and cached tokens may price differently) but directional. Good enough for spotting runaway tasks.
+
+**Level 3: Programmatic queries.** For serious monitoring, set up automated cost tracking. A service account with read-only billing access can query actual spend and post daily reports. This is overkill at low volumes but essential if your agent usage grows.
+
+## Budget alerts are your safety net
+
+Set a monthly budget with threshold alerts. My setup uses thresholds at 25%, 50%, 100%, 150%, and 200% of the monthly budget. This catches two scenarios:
+
+**Gradual creep.** You add more tasks, enable more sub-agents, have longer conversations. Spending rises slowly until the 50% alert fires halfway through the month and you realize you're on pace to exceed your budget.
+
+**Runaway tasks.** A bug causes a cron to loop, or a sub-agent enters an infinite retry cycle. The budget alert catches the spike before it becomes painful.
+
+Important: budget alerts notify but don't stop spending. Your API keeps working past 100%. If you need a hard cap, set quota limits separately in your provider's console.
+
+## Practical optimization tactics
+
+**Right-size every task.** Use the cheapest model that produces acceptable results. Most scheduled tasks and simple generations don't need your most powerful model.
+
+**Set timeouts on sub-agents.** A hung sub-agent that runs for 30 minutes on an expensive model wastes real money. Timeouts cap the damage.
+
+**Cache aggressively.** If your framework supports prompt caching, long system prompts and repeated context get cached and priced at a discount. This compounds for agents with large instruction sets.
+
+**Monitor token counts, not just cost.** A sudden spike in token usage tells you something changed before the bill arrives. Track it weekly.
+
+**Review monthly.** Which tasks cost the most? Are they delivering proportional value? Could any of them run on a cheaper model or run less frequently? A monthly review takes 15 minutes and can save significant money.
+
+## The mental shift
+
+The real change isn't about monitoring dashboards. It's about internalizing that every AI operation has a cost, and that cost should be proportional to the value delivered.
+
+A deep strategic analysis that shapes your next quarter? Worth the premium model. A daily reminder to drink water? Use the cheapest option available.
+
+Once you internalize this, you stop defaulting everything to the most expensive model and start designing with cost efficiency as a first-class concern. Your agent doesn't get worse. It gets more sustainable.
 
 ---
 
@@ -840,6 +910,212 @@ Productivity increases while you're idle.
 
 ---
 
+# Migrating cron jobs to a new model provider
+
+## 23 crons, one provider, zero fallbacks
+
+My agent ran 23 scheduled tasks. Morning briefings, security scans, content reminders, news research, code reviews, backup scripts. All of them hardcoded to a single model. When that provider's subscription ended, every single one of them would stop working.
+
+The migration took an afternoon. But the audit it forced was worth more than the migration itself.
+
+## Step 1: Inventory everything
+
+Before changing anything, I needed to see what I had. A simple list: task name, schedule, which model it uses, what it does.
+
+The surprise wasn't the count. It was the uniformity. Every task, from a simple "remind me to check email" to a complex "scan 8 websites and generate a visual report," ran on the same expensive model. Nobody had ever questioned it.
+
+## Step 2: Classify by complexity
+
+Not every task needs the same model. I sorted my 23 crons into three buckets:
+
+**Simple tasks (needed the cheapest model).** Template-based coaching messages, backup scripts, content goal checks, date reminders, formatting jobs. If the task could be explained in one sentence, it went here.
+
+**Research tasks (needed the reasoning model).** News scanning, strategic analysis, SEO reviews, weekly evidence compilation. These tasks genuinely benefit from strong reasoning, web search, and synthesis.
+
+**Code tasks (needed the code model).** Anything that edits files, runs builds, or interacts with git. These tasks benefit from models optimized for tool use.
+
+The result: 10 simple, 4 research, 2 code, and 7 that turned out to be unnecessary.
+
+## Step 3: Cut the dead weight
+
+The migration forced me to ask "do I actually need this?" for every task. Seven crons got deleted:
+
+- A 4-stage overnight pipeline that generated 700+ brainstorm ideas nobody reviewed
+- Two quota tracking tasks for a subscription I was leaving
+- An about-page improvement scanner that ran daily but never produced actionable results
+- An expired one-shot reminder
+
+Going from 23 to 14 tasks wasn't a loss. It was cleanup that should have happened months ago. Each deleted cron was consuming API tokens, context window space, and my attention when it delivered results I ignored.
+
+## Step 4: Update model references
+
+With the classification done, the actual migration was mechanical. For each remaining cron, I changed the model reference from the old provider to the new one. Most frameworks store this as a simple field in the task config.
+
+The tricky part: some tasks targeted my "main" session (they'd run in the brain's context using whatever model the brain was on). Others ran in isolated sessions with their own model override. The isolated ones were easy to migrate. The main-session ones needed to be converted to isolated sessions with explicit model assignments, so they wouldn't depend on whatever the brain happened to be running.
+
+After conversion, every single cron had an explicit model assignment. No inheritance, no defaults, no surprises.
+
+## Step 5: Verify
+
+I ran each cron manually once to confirm it worked on the new provider. Two of the 14 had issues: the news scanning crons were erroring due to an unrelated file conflict, not a model problem. Everything else worked on the first try.
+
+## What I learned
+
+**Over-provisioning is the default.** When you create a task, you assign whatever model you're using. You never go back and right-size it. Migration forces that conversation.
+
+**Dead tasks accumulate silently.** Without a forcing function, old crons just keep running. They consume tokens and attention without delivering value. A periodic audit (or a migration) cleans them out.
+
+**Explicit is better than inherited.** Every task should declare which model it uses. Inheriting from the brain model means a model switch can silently change behavior across all your tasks. That's a fragility you don't want.
+
+**The migration itself is fast.** Once classified, updating 14 crons took maybe 20 minutes. The thinking about what each task actually needs took longer than the doing. Which means the real value wasn't in the migration. It was in the audit.
+
+## Your migration checklist
+
+1. List all scheduled tasks with their current model
+2. Classify each as simple, research, or code
+3. Delete anything you haven't looked at in 2 weeks
+4. Assign the cheapest appropriate model to each
+5. Convert inherited-model tasks to explicit assignments
+6. Test each one manually
+7. Set a reminder to re-audit in 3 months
+
+---
+
+# Why your AI agent should never depend on one provider
+
+## The subscription email
+
+I got the email on a Thursday. My AI subscription was ending. The one that powered everything: my always-on agent, 23 scheduled tasks, voice transcription routing, daily briefings, code reviews. All of it ran through a single provider's API.
+
+I had 3 days to migrate or go dark.
+
+The panic lasted about 20 minutes. Then I realized something. The migration itself was going to be easy. The architecture was already right. What made it scary wasn't the technical work. It was the sudden awareness of how much I'd built on top of a single dependency.
+
+## The real risk isn't technical
+
+Switching models is straightforward. You change a config value, restart a service, and test. The hard part is everything around it.
+
+Your prompts are tuned to one model's personality. Your cost assumptions are built around one pricing structure. Your scheduled tasks reference specific model names. Your sub-agents expect certain response formats. And your muscle memory as a user is calibrated to one model's strengths and blind spots.
+
+None of that transfers automatically.
+
+## What provider independence actually means
+
+It doesn't mean running everything on every provider simultaneously. That's wasteful and unnecessary. It means three things.
+
+**First, your architecture should treat models as pluggable components.** The agent framework talks to an abstraction layer. The abstraction layer talks to a provider. Swapping providers means changing config, not rewriting code.
+
+**Second, your prompts should be model-agnostic.** If your prompts only work because of one specific model's quirks, you've built a dependency. Good prompts work across models because they're clear about what they want, not because they exploit a particular model's tendencies.
+
+**Third, you should have a migration checklist ready.** Not because you'll use it often, but because when you need it, you'll need it fast. What config values reference provider names? What scheduled tasks hardcode a model? What workflows assume a specific context window size?
+
+## The migration checklist
+
+When the moment came, I needed to do four things:
+
+1. **Add the new provider's API key.** Store it securely, verify it works with a simple test call.
+
+2. **Map existing tasks to new models.** Not every task needs the most powerful model. I discovered that most of my 23 scheduled tasks were running on the most expensive model when a cheaper one would have been fine. The migration forced me to right-size everything.
+
+3. **Update the default model and fallback chain.** Primary model for the brain, cheaper model for simple tasks, and a fallback if the primary fails. Three layers of resilience.
+
+4. **Restart and verify.** The whole switchover took less than an afternoon. Most of that time was spent on optimization, not survival.
+
+## The lesson that sticks
+
+The migration wasn't the hard part. The hard part was the 3 months before it, when I was building without thinking about portability. Every prompt I wrote, every cron I created, every workflow I designed could have been provider-agnostic from day one. Instead, I had to retrofit it all in a weekend.
+
+The architecture was fine. The habits weren't.
+
+Build your agent so that the model is the easiest part to replace. Your context, your prompts, your workflows, your memory system: those are the real assets. The model is just the engine. Engines get swapped.
+
+## What to do now
+
+Before your hand is forced:
+
+- **Audit your config.** How many places reference a specific provider or model name? Each one is a migration point.
+- **Test a second provider.** Even if you don't use it daily. Knowing it works removes the panic.
+- **Separate your context from your model.** If your agent's memory, personality, and tools are all stored in portable files, migration is just pointing a new model at the same context.
+- **Document your model assumptions.** What context window size do you rely on? What pricing are your cost estimates based on? Write it down so future-you can update it quickly.
+
+The goal isn't to avoid depending on AI providers. It's to depend on the pattern, not the name.
+
+---
+
+# Setting up multi-model routing
+
+## One model for everything is expensive and unnecessary
+
+When I started with my AI agent, every task ran on the same model. The morning briefing, the code review, the simple date check, the deep strategic analysis. All the same. Like hiring a senior architect to also answer the phone and sort the mail.
+
+The moment I switched to multi-model routing, two things happened. Cost dropped significantly. And quality actually improved, because each task got the model best suited for it.
+
+## The brain-as-router pattern
+
+The core idea is simple. Your main agent, the "brain," doesn't do the work itself. It classifies incoming tasks and delegates them to the right model.
+
+Think of it as a dispatcher. A message comes in. The brain reads it, decides what kind of work it requires, and spawns a sub-agent on the appropriate model. The brain stays free for the next message. The worker does the actual thinking.
+
+Three categories cover most use cases:
+
+**Reasoning model.** For research, strategy, article writing, deep analysis. This is your most capable (and expensive) model. Use it when the task requires genuine synthesis, multi-step reasoning, or creative output.
+
+**Code model.** For editing files, creating pull requests, running builds, debugging. Some providers offer models specifically optimized for tool use and code generation. They're faster at file operations and produce more reliable structured output.
+
+**Fast model.** For formatting, simple lookups, date checks, notification text, anything you could explain in one sentence. These models are 10-100x cheaper and respond almost instantly.
+
+## Two triggers for spawning
+
+The brain decides to delegate based on two questions:
+
+**Would this take more than 30 seconds?** If yes, spawn it. This keeps the main conversation responsive. You never want the brain frozen for 2 minutes while it runs a build.
+
+**Would a different model do this better?** If yes, spawn it, even if the task is fast. A code-optimized model writing a pull request will produce better results than a general reasoning model doing the same thing in half the time.
+
+If either answer is yes, the brain delegates. Otherwise it handles the task inline. Simple replies, memory updates, and relaying results stay with the brain.
+
+## What the brain keeps for itself
+
+The brain's job is narrow on purpose:
+
+- Conversation with the user
+- Reading and writing memory files
+- Managing scheduled tasks
+- Relaying sub-agent results
+- Quick lookups and status checks
+- Deciding which model handles what
+
+Everything else gets dispatched. This separation means the brain can be a cheaper, faster model. It doesn't need to be the most powerful model in your stack. It needs to be good at classification and routing.
+
+## The fallback chain
+
+Models go down. APIs return errors. Rate limits get hit. A fallback chain handles this automatically.
+
+The structure is simple: primary model, then first fallback, then second fallback. If the primary fails, the system tries the next one. If that fails, it tries the last resort.
+
+In practice, this means your agent never goes fully dark. The quality might degrade temporarily if it falls back to a simpler model, but the lights stay on.
+
+## Right-sizing is the real optimization
+
+The biggest win from multi-model routing isn't the architecture. It's the forced audit of what each task actually needs.
+
+When I migrated my scheduled tasks, I found that 10 out of 14 only needed the cheapest model. Simple template-based coaching messages, backup scripts, content goal checks. They'd been running on the most expensive model for weeks because I never questioned the default.
+
+Right-sizing those tasks cut my projected costs by roughly 70%. The expensive model runs 4 tasks. The cheap model runs 10. Each one gets exactly what it needs.
+
+## Getting started
+
+You don't need to implement everything at once:
+
+1. **Start with one model.** Get your agent working.
+2. **Add a cheap model for simple tasks.** Redirect anything template-based or formulaic.
+3. **Add a specialized model for code.** If your agent edits files or creates PRs, a code-optimized model pays for itself in quality.
+4. **Build the routing logic.** A simple rubric in your agent's instructions is enough. "If the task involves code, use the code model. If it's simple, use the fast model. Everything else goes to the reasoning model."
+
+The pattern scales naturally. As new models become available, you slot them into the right category. No rewrites. Just config changes.
+
+---
+
 # Persistent AI agents
 
 ## What is a persistent AI agent?
@@ -1083,6 +1359,86 @@ Works well for:
 
 ---
 
+# Sub-agent reliability: timeouts, monitoring, and recovery
+
+## My first sub-agent on the new provider hung for 21 minutes
+
+I'd just migrated to a new model provider. Everything looked fine. I spawned a sub-agent for a research task with "high thinking" mode. It started processing. Tokens were flowing.
+
+Then the tokens stopped. The sub-agent sat at 21,634 tokens for 9 minutes. No progress. No error. No completion message. Just silence.
+
+I didn't notice until someone asked "what happened with that task?" That gap between "task spawned" and "someone asks about it" is where sub-agents go to die.
+
+## How sub-agent completion normally works
+
+Most agent frameworks use a push-based model. You spawn a sub-agent. It runs in its own session. When it finishes, the framework sends a completion message back to the parent. The parent reads the result and relays it.
+
+This is elegant and efficient. Zero polling. Zero wasted API calls. The framework handles the plumbing.
+
+But push-based means: if the sub-agent never finishes, the parent never gets told. The task just sits there. No alarm. No timeout. Nothing, unless you go looking.
+
+## Three layers of protection
+
+After that first incident, I built a three-layer system. Each layer catches what the previous one misses.
+
+### Layer 1: Mandatory timeouts
+
+Every sub-agent spawn gets a hard timeout. The framework enforces it. If the sub-agent doesn't complete within the window, it gets killed and the parent gets a failure notification.
+
+The timeout values depend on the task type:
+
+- Simple formatting tasks: 2 minutes
+- Code editing and builds: 5 minutes
+- Research and article writing: 10 minutes
+- Deep reasoning tasks: 15 minutes
+- Custom (documented): up to 30 minutes
+
+The key rule: no sub-agent spawns without a timeout. No exceptions. If a task legitimately needs more than the default, you set a custom timeout and document why.
+
+### Layer 2: Heartbeat sweep (detection only)
+
+Periodic health checks scan for suspicious sub-agents. A sub-agent is suspicious when two conditions are both true: it's been running longer than expected, AND its token count is frozen.
+
+If tokens are still climbing, the task is alive. Leave it alone. A legitimately complex reasoning task might run for 12 minutes with steadily increasing tokens. That's healthy.
+
+The critical design decision: **the sweep never kills anything.** It only detects and alerts. The timeout from Layer 1 handles termination. The sweep provides visibility.
+
+Why detection-only? Because the sweep could fire 30 seconds after a spawn. If it auto-killed, it would destroy a perfectly healthy task that just started. Separation of concerns: the timeout enforces, the sweep observes.
+
+### Layer 3: Recovery protocol
+
+When a sub-agent dies (from timeout, manual kill, or crash), don't blindly re-spawn the same task from scratch. Check what was accomplished first.
+
+The recovery protocol has four steps:
+
+**Check the transcript.** Most frameworks let you pull the full history of a sub-agent's session. This shows every tool call, every file written, every error encountered. In my first incident, the transcript revealed the exact failure: a connection drop mid-response, partial recovery, then a hung API call.
+
+**Check for saved artifacts.** The sub-agent might have written files to disk before dying. In my case, the research task had saved its complete 120-line analysis file before the hang. The work was done. Re-spawning would have duplicated effort.
+
+**Decide the action.** Four scenarios:
+- Work fully completed but session hung? Don't re-spawn. Just read the file.
+- Partial work saved? Re-spawn with context: "Continue from where the previous attempt stopped."
+- Nothing saved, clean failure? Re-spawn the original task.
+- Failed twice? Break the task into smaller pieces or escalate.
+
+**Include recovery context.** When re-spawning, tell the new sub-agent what the previous one accomplished. "The last attempt completed steps 1-3 and saved file X. Pick up from step 4."
+
+## The principle
+
+Every sub-agent's work product has value, even from failed runs. The plan consolidation incident proved this perfectly. The hung sub-agent had already saved the complete analysis to disk. Without the recovery protocol, I would have wasted 10 minutes regenerating the same work.
+
+Check before you re-spawn. Resume, don't restart.
+
+## Implementation checklist
+
+1. Add mandatory timeouts to every sub-agent spawn in your agent instructions
+2. Create a timeout table by task type
+3. Add a health check to your periodic maintenance routine
+4. Build a recovery step that checks transcripts and artifacts before re-spawning
+5. Log incidents for pattern detection (is one model failing more than others?)
+
+---
+
 # Sub-Agents & Session Isolation
 
 ## The short answer
@@ -1258,6 +1614,83 @@ This means:
 | Do cron jobs work the same way? | Yes — isolated cron jobs are independent sessions |
 
 The core principle: **sessions are isolated by design**. This gives you reliability, parallelism, and the freedom to change settings without worrying about breaking background work.
+
+---
+
+# Fix Voice Message Speed Control in OpenClaw + Telegram
+
+## The problem
+
+Your OpenClaw agent sends TTS voice messages on Telegram. They play fine, but the speed control button is missing. No 1.5x. No 2x. Just fixed-speed audio.
+
+If your agent sends briefings or long content, you're stuck at 1x. A 3-minute update takes 3 minutes. At 2x, it takes 90 seconds.
+
+The issue is the audio format. OpenClaw's TTS outputs MP3. Telegram's `sendVoice` API technically accepts MP3, but it doesn't treat it as a real voice message. No waveform. No speed control.
+
+## The fix
+
+Convert MP3 to OGG Opus before sending.
+
+```bash
+ffmpeg -i input.mp3 -c:a libopus -b:a 48k -vbr on -compression_level 10 -frame_duration 60 -application voip output.ogg
+```
+
+Send the `.ogg` file instead. Telegram now shows the waveform and speed buttons (0.5x/1x/1.5x/2x).
+
+## Why OGG Opus
+
+Telegram's docs say voice messages must be ".ogg encoded with OPUS." But they don't say what happens when you ignore this. MP3 files still play. They just lose features.
+
+The ffmpeg flags that matter:
+
+- `-c:a libopus` — Opus codec
+- `-b:a 48k` — 48kbps bitrate (clear voice quality)
+- `-application voip` — Optimizes for speech, not music. This one's key.
+- `-frame_duration 60` — Faster playback start
+- `-compression_level 10` — Smallest file size
+
+## Quick setup for OpenClaw users
+
+Tell your agent this:
+
+> "From now on, before sending any TTS voice message, convert the MP3 to OGG Opus using this command: `ffmpeg -i input.mp3 -c:a libopus -b:a 48k -vbr on -compression_level 10 -frame_duration 60 -application voip output.ogg`. Send the .ogg file instead of the .mp3. Always do this for every voice message."
+
+Or create a conversion script on your server:
+
+```bash
+#!/bin/bash
+# Save as ~/tts-to-opus.sh
+INPUT="$1"
+OUTPUT="${INPUT%.mp3}.ogg"
+ffmpeg -i "$INPUT" -c:a libopus -b:a 48k -vbr on \
+  -compression_level 10 -frame_duration 60 \
+  -application voip "$OUTPUT" -y -loglevel error
+echo "$OUTPUT"
+```
+
+```bash
+chmod +x ~/tts-to-opus.sh
+```
+
+Then use it: `~/tts-to-opus.sh my-briefing.mp3`
+
+## Cost implications
+
+Zero. ffmpeg is free. OGG Opus is royalty-free. Conversion takes under 2 seconds for a 3-minute file. No extra API costs.
+
+If you're paying for TTS (ElevenLabs, Azure, Google), the conversion adds nothing to your bill. It's a local processing step.
+
+## Future improvements
+
+OpenClaw could handle this internally. If the target is Telegram and the media is voice, auto-convert to OGG Opus before sending. That would make the fix invisible.
+
+Until then, the ffmpeg command works.
+
+## Sources
+
+- [Telegram Bot API: sendVoice](https://core.telegram.org/bots/api#sendvoice)
+- [ffmpeg Opus encoding](https://trac.ffmpeg.org/wiki/Encode/HighQualityAudio)
+- [Opus codec docs](https://opus-codec.org/docs/)
 
 ---
 

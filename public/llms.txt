@@ -3,12 +3,18 @@
 > Practical setup guides for the OpenClaw AI assistant platform. From installation to advanced automation.
 
 ## Guides
-- [I Asked an AI to Design My Banner. Then I Built It Myself.](https://openclaw.turtleand.com/topics/banner-generation-ai-vs-code): A real comparison: AI image generation vs. code-generated graphics for a Twitter/X profile banner. Same brief, two approaches, very different results.
+- [AI Image Gen vs OpenClaw + Code](https://openclaw.turtleand.com/topics/banner-generation-ai-vs-code): Same banner brief, two approaches: a standard image model vs OpenClaw generating code. The results tell you where AI actually adds value.
 - [Claude CLI Integration](https://openclaw.turtleand.com/topics/claude-cli-integration): Run Claude CLI commands through OpenClaw and monitor your Anthropic usage limits.
+- [Cost tracking for AI agent operations](https://openclaw.turtleand.com/topics/cost-tracking-ai-agents): How to monitor and optimize spending when your AI agent runs on pay-per-token APIs.
 - [Cron Jobs & Scheduled Automation](https://openclaw.turtleand.com/topics/cron-jobs-automation): Schedule recurring tasks, reminders, and automated check-ins with OpenClaw's built-in cron system.
 - [Delegating Development to Your Agent](https://openclaw.turtleand.com/topics/git-autonomous-development): Configure Git access so OpenClaw can develop on your behalf while you're away.
+- [Migrating cron jobs to a new model provider](https://openclaw.turtleand.com/topics/migrating-cron-jobs): How to audit, classify, and migrate scheduled AI tasks when switching providers.
+- [Why your AI agent should never depend on one provider](https://openclaw.turtleand.com/topics/model-provider-independence): What happens when your only model provider disappears, and how to design for it.
+- [Setting up multi-model routing](https://openclaw.turtleand.com/topics/multi-model-routing): How to use different AI models for different tasks instead of running everything on one.
 - [Persistent AI agents](https://openclaw.turtleand.com/topics/persistent-agents): Deploy an always-on AI agent on a cloud server with messaging and security.
+- [Sub-agent reliability: timeouts, monitoring, and recovery](https://openclaw.turtleand.com/topics/sub-agent-reliability): What happens when a sub-agent hangs, and the three-layer system to handle it.
 - [Sub-Agents & Session Isolation](https://openclaw.turtleand.com/topics/sub-agents-and-session-isolation): How sub-agents work, why they're isolated from your main session, and what happens when you change settings mid-flight.
+- [Fix Voice Message Speed Control in OpenClaw + Telegram](https://openclaw.turtleand.com/topics/telegram-voice-speed-control): Convert TTS output to OGG Opus so Telegram voice messages get proper speed control buttons.
 - [Voice notes with Telegram](https://openclaw.turtleand.com/topics/voice-notes-telegram): Send voice messages to your AI agent and have them transcribed and executed.
 
 ## About
