@@ -25,15 +25,10 @@ const modules = [
 const publishedTopicCount = topics.length;
 const activeModuleCount = modules.filter((module) => module.topics.length > 0).length;
 const systemSignals = [
-  'Boundaries before autonomy',
-  'Voice and messaging loops',
-  'Scheduled work with review',
-];
-
-const operatorLoop = [
-  { step: '01', title: 'Connect', detail: 'Give the agent a channel and a narrow job.' },
-  { step: '02', title: 'Delegate', detail: 'Let it work inside explicit boundaries.' },
-  { step: '03', title: 'Audit', detail: 'Review outputs before trust compounds.' },
+  'Persistent agents',
+  'Scheduling',
+  'Routing',
+  'Human review',
 ];
 
 function getStatusIcon(status: string) {
@@ -47,7 +42,7 @@ function getStatusIcon(status: string) {
 
 <BaseLayout title="Home">
   <!-- Hero Section -->
-  <section class="py-10 md:py-20">
+  <section class="py-8 md:py-16">
     <div class="container">
       <div class="lab-hero">
         <div class="lab-hero-copy">
@@ -61,47 +56,32 @@ function getStatusIcon(status: string) {
           <p class="text-lg text-muted max-w-2xl">
             OpenClaw is Turtleand's applied lab for public-safe notes on scheduling, routing, voice loops, sub-agents, and the boundaries that keep automation useful.
           </p>
+          <div class="signal-line" aria-label="OpenClaw focus areas">
+            {systemSignals.map((signal) => (
+              <span>{signal}</span>
+            ))}
+          </div>
           <div class="proof-strip" aria-label="OpenClaw publishing signals">
             <span><strong>{publishedTopicCount}</strong> published notes</span>
             <span><strong>{activeModuleCount}</strong> active modules</span>
             <span>Human review stays in the loop</span>
           </div>
         </div>
-
-        <aside class="lab-hero-panel" aria-label="OpenClaw field signals">
-          <p class="panel-kicker">Operator loop</p>
-          <div class="operator-loop">
-            {operatorLoop.map((item) => (
-              <div class="operator-step">
-                <span>{item.step}</span>
-                <div>
-                  <strong>{item.title}</strong>
-                  <p>{item.detail}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div class="signal-stack">
-            {systemSignals.map((signal) => (
-              <span>{signal}</span>
-            ))}
-          </div>
-        </aside>
       </div>
     </div>
   </section>
 
   <!-- Module Rows -->
-  <section class="pb-16">
+  <section id="field-notes" class="pb-16">
     <div class="container">
       <div class="section-heading">
         <p class="module-badge">Learning path</p>
-        <h2>Start with the operational surface, then follow the systems underneath.</h2>
+        <h2>Choose a field note, then follow the system underneath.</h2>
       </div>
       <div class="space-y-4">
         {modules.map((module) => (
-          <details class="group card" open={module.id === 0}>
-            <summary class="cursor-pointer list-none flex items-center justify-between">
+          <details class="group module-card" open={module.id === 0}>
+            <summary class="module-summary">
               <div>
                 <h2 class="text-xl font-semibold mb-1">{module.title}</h2>
                 <p class="text-sm text-muted">{module.description}</p>

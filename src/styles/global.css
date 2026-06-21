@@ -15,7 +15,7 @@
   --accent-2: #1fa2ff;
   --border: #e4e6ef;
   --border-strong: #d1d5e5;
-  --glow: 0 20px 60px rgba(95, 93, 240, 0.15);
+  --glow: 0 18px 42px rgba(74, 73, 190, 0.11);
 
   /* Header */
   --header-bg: rgba(255, 255, 255, 0.75);
@@ -42,7 +42,7 @@
   --accent-2: #2e8373;
   --border: #1d2f45;
   --border-strong: #21415c;
-  --glow: 0 20px 60px rgba(6, 16, 28, 0.6);
+  --glow: 0 18px 42px rgba(6, 16, 28, 0.42);
 
   /* Header */
   --header-bg: rgba(14, 30, 43, 0.85);
@@ -59,11 +59,13 @@
 @layer base {
   html {
     @apply bg-bg text-ink;
+    overflow-x: clip;
     font-family: 'Inter var', 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   }
 
   body {
     @apply min-h-screen antialiased;
+    overflow-x: clip;
     background: var(--bg);
     background-image: var(--hero-gradient);
     background-attachment: fixed;
@@ -140,7 +142,7 @@
   }
 
   .prose table {
-    @apply w-full mb-4 border-collapse;
+    @apply block w-full mb-4 border-collapse overflow-x-auto;
   }
 
   .prose th, .prose td {
@@ -174,8 +176,7 @@
   }
 
   .lab-hero {
-    @apply grid gap-6 items-stretch;
-    grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.75fr);
+    @apply max-w-4xl;
   }
 
   .lab-hero-copy {
@@ -193,8 +194,21 @@
     line-height: 0.98;
   }
 
+  .signal-line {
+    @apply mt-7 flex flex-wrap gap-x-4 gap-y-2 border-y border-border py-4 text-sm font-medium text-muted;
+  }
+
+  .signal-line span {
+    @apply inline-flex items-center gap-2;
+  }
+
+  .signal-line span::before {
+    content: '';
+    @apply h-1.5 w-1.5 rounded-full bg-accent;
+  }
+
   .proof-strip {
-    @apply mt-8 flex flex-wrap gap-2 border-t border-border pt-5 text-sm text-muted;
+    @apply mt-5 flex flex-wrap gap-2 text-sm text-muted;
   }
 
   .proof-strip span {
@@ -205,51 +219,6 @@
     @apply text-ink;
   }
 
-  .lab-hero-panel {
-    @apply bg-panel-soft border border-border rounded-2xl p-5 md:p-6 shadow-glow flex flex-col justify-between gap-6;
-  }
-
-  .panel-kicker {
-    @apply text-xs font-semibold uppercase tracking-[0.18em] text-muted;
-  }
-
-  .operator-loop {
-    @apply grid gap-4;
-  }
-
-  .operator-step {
-    @apply relative grid grid-cols-[2.5rem_1fr] gap-3 rounded-xl border border-border bg-panel px-4 py-3;
-  }
-
-  .operator-step::before {
-    content: '';
-    @apply absolute bottom-[-1rem] left-[2rem] h-4 w-px bg-border;
-  }
-
-  .operator-step:last-child::before {
-    display: none;
-  }
-
-  .operator-step > span {
-    @apply font-mono text-xs font-semibold text-accent;
-  }
-
-  .operator-step strong {
-    @apply block text-sm text-ink;
-  }
-
-  .operator-step p {
-    @apply mt-1 text-sm leading-snug text-muted;
-  }
-
-  .signal-stack {
-    @apply grid gap-2;
-  }
-
-  .signal-stack span {
-    @apply rounded-lg border border-border bg-panel px-3 py-2 text-sm text-ink;
-  }
-
   .section-heading {
     @apply mb-6 max-w-2xl;
   }
@@ -258,8 +227,16 @@
     @apply mt-3 text-2xl md:text-3xl;
   }
 
+  .module-card {
+    @apply bg-panel border border-border rounded-xl p-4 shadow-glow;
+  }
+
+  .module-summary {
+    @apply cursor-pointer list-none flex items-center justify-between gap-4 px-1;
+  }
+
   .topic-card {
-    @apply block rounded-lg border border-border bg-panel-soft p-4 no-underline transition-colors hover:border-accent;
+    @apply block rounded-lg border border-border bg-panel-soft p-3.5 no-underline transition-colors hover:border-accent hover:bg-panel;
   }
 
   .topic-card-heading {
@@ -274,11 +251,35 @@
     @apply rounded-full border border-border bg-panel px-2 py-0.5 text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted;
   }
 
-  @media (max-width: 760px) {
-    .lab-hero {
-      grid-template-columns: 1fr;
-    }
+  .topic-shell {
+    @apply py-8 md:py-12;
+  }
 
+  .topic-sheet {
+    @apply mx-auto max-w-4xl rounded-2xl border border-border bg-panel p-6 shadow-glow md:p-8;
+  }
+
+  .back-link {
+    @apply mb-8 inline-flex items-center gap-2 text-sm text-muted hover:text-ink no-underline transition-colors;
+  }
+
+  .topic-heading {
+    @apply border-b border-border pb-6;
+  }
+
+  .topic-heading h1 {
+    @apply mb-3 text-3xl font-bold md:text-4xl;
+  }
+
+  .topic-heading p {
+    @apply max-w-2xl text-lg text-muted;
+  }
+
+  .topic-prose {
+    @apply mt-8 max-w-none;
+  }
+
+  @media (max-width: 760px) {
     .lab-hero-title {
       @apply text-4xl;
       line-height: 1.02;
@@ -287,7 +288,7 @@
 
   @media (max-width: 480px) {
     .lab-hero-copy,
-    .lab-hero-panel,
+    .topic-sheet,
     .card {
       @apply rounded-xl p-5;
     }

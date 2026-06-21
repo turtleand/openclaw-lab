@@ -42,6 +42,14 @@ Keep private things private. Share learnings, not exposure.
 - Do not introduce em dashes in public writing.
 - Keep humans responsible for direction, judgment, taste, ethics, and consequences.
 
+## Compact UI and visual direction
+
+- Use the Turtleand UI craft loop across every changed route, not only the home page: inspect, screenshot, critique, prune, rebuild, and verify representative subpages.
+- Keep OpenClaw lean and low-distraction. Remove panels, badges, decorative rails, animations, or repeated labels that consume space without helping orientation or trust.
+- Maintain style through restraint: clear hierarchy, quiet cards, subtle gradients, useful typography, and one subject-specific visual cue at most.
+- Prefer article-first and field-note-first layouts over SaaS landing-page patterns, fake dashboards, generic AI productivity claims, or ornamental operator loops.
+- Mobile must preserve the same hierarchy with fewer elements, not a stacked version of every desktop decoration.
+
 ## Repository integrity review
 
 - Keep changes focused to the branch purpose.
