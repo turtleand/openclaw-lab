@@ -1,27 +1,28 @@
 ---
 const navItems = [
   { href: '/', label: 'Home' },
-  { href: '/topics/persistent-agents', label: 'Topics' },
+  { href: '/#field-notes', label: 'Notes' },
 ];
 
 const currentPath = Astro.url.pathname;
 ---
 
 <header class="sticky top-0 z-50 border-b border-[var(--header-border)] bg-[var(--header-bg)] backdrop-blur-[14px]">
-  <div class="container py-3 flex items-center justify-between">
+  <div class="container py-3 flex items-center justify-between gap-3">
     <!-- Brand lockup -->
     <a href="/" class="flex items-center gap-2 text-ink hover:text-accent no-underline transition-colors">
       <img src="/logo.svg" alt="" class="w-8 h-8" loading="lazy" decoding="async" />
-      <span class="font-semibold text-lg">Turtleand OpenClaw</span>
+      <span class="hidden font-semibold text-lg whitespace-nowrap sm:inline">Turtleand OpenClaw</span>
+      <span class="font-semibold text-base whitespace-nowrap sm:hidden">OpenClaw</span>
     </a>
 
     <!-- Navigation -->
-    <nav class="flex items-center gap-4">
+    <nav class="flex items-center gap-1 sm:gap-4">
       {navItems.map(({ href, label }) => (
         <a
           href={href}
           class:list={[
-            'text-sm font-medium transition-colors no-underline px-3 py-1.5 rounded-pill',
+            'text-sm font-medium transition-colors no-underline px-2 sm:px-3 py-1.5 rounded-pill',
             currentPath === href || (href !== '/' && currentPath.startsWith(href))
               ? 'bg-accent/10 text-accent'
               : 'text-muted hover:text-ink hover:bg-panel-soft'
