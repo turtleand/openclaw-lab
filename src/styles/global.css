@@ -104,7 +104,7 @@
 
 @layer components {
   .container {
-    @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8;
+    @apply max-w-5xl mx-auto px-4 sm:px-6 lg:px-8;
   }
 
   .prose {
@@ -171,6 +171,139 @@
   /* Card style */
   .card {
     @apply bg-panel border border-border rounded-xl p-6 shadow-glow;
+  }
+
+  .lab-hero {
+    @apply grid gap-6 items-stretch;
+    grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.75fr);
+  }
+
+  .lab-hero-copy {
+    @apply relative overflow-hidden bg-panel border border-border rounded-2xl p-6 md:p-10 shadow-glow;
+  }
+
+  .lab-hero-copy::before {
+    content: '';
+    @apply absolute inset-x-0 top-0 h-1;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+
+  .lab-hero-title {
+    @apply mb-5 max-w-3xl text-4xl font-bold tracking-tight md:text-5xl;
+    line-height: 0.98;
+  }
+
+  .proof-strip {
+    @apply mt-8 flex flex-wrap gap-2 border-t border-border pt-5 text-sm text-muted;
+  }
+
+  .proof-strip span {
+    @apply rounded-full border border-border bg-panel-soft px-3 py-1.5;
+  }
+
+  .proof-strip strong {
+    @apply text-ink;
+  }
+
+  .lab-hero-panel {
+    @apply bg-panel-soft border border-border rounded-2xl p-5 md:p-6 shadow-glow flex flex-col justify-between gap-6;
+  }
+
+  .panel-kicker {
+    @apply text-xs font-semibold uppercase tracking-[0.18em] text-muted;
+  }
+
+  .operator-loop {
+    @apply grid gap-4;
+  }
+
+  .operator-step {
+    @apply relative grid grid-cols-[2.5rem_1fr] gap-3 rounded-xl border border-border bg-panel px-4 py-3;
+  }
+
+  .operator-step::before {
+    content: '';
+    @apply absolute bottom-[-1rem] left-[2rem] h-4 w-px bg-border;
+  }
+
+  .operator-step:last-child::before {
+    display: none;
+  }
+
+  .operator-step > span {
+    @apply font-mono text-xs font-semibold text-accent;
+  }
+
+  .operator-step strong {
+    @apply block text-sm text-ink;
+  }
+
+  .operator-step p {
+    @apply mt-1 text-sm leading-snug text-muted;
+  }
+
+  .signal-stack {
+    @apply grid gap-2;
+  }
+
+  .signal-stack span {
+    @apply rounded-lg border border-border bg-panel px-3 py-2 text-sm text-ink;
+  }
+
+  .section-heading {
+    @apply mb-6 max-w-2xl;
+  }
+
+  .section-heading h2 {
+    @apply mt-3 text-2xl md:text-3xl;
+  }
+
+  .topic-card {
+    @apply block rounded-lg border border-border bg-panel-soft p-4 no-underline transition-colors hover:border-accent;
+  }
+
+  .topic-card-heading {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .topic-card-heading h3 {
+    @apply text-lg font-medium text-ink transition-colors group-hover/item:text-accent md:text-xl;
+  }
+
+  .topic-card-heading span {
+    @apply rounded-full border border-border bg-panel px-2 py-0.5 text-[0.68rem] font-medium uppercase tracking-[0.14em] text-muted;
+  }
+
+  @media (max-width: 760px) {
+    .lab-hero {
+      grid-template-columns: 1fr;
+    }
+
+    .lab-hero-title {
+      @apply text-4xl;
+      line-height: 1.02;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .lab-hero-copy,
+    .lab-hero-panel,
+    .card {
+      @apply rounded-xl p-5;
+    }
+
+    .lab-hero-title {
+      @apply text-3xl;
+      line-height: 1.04;
+    }
+
+    .proof-strip {
+      @apply mt-6;
+    }
+
+    .section-heading h2 {
+      @apply text-2xl;
+    }
   }
 
   /* Module badge */
