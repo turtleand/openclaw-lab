@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.23",
-    "postcss": "^8.5.16"
+    "postcss": "^8.5.19"
   },
   "overrides": {
     "esbuild": "^0.28.1"
